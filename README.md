@@ -9,7 +9,7 @@
 
 
 - [前端项目介绍.md](docs/前端项目介绍.md)
-- [临时前端api文档](docs/api.txt)
+- [api文档](https://github.com/Rare-Specie/MedImgAIAnalyzer-cppServer/blob/main/Api.md)
 
 ---
 
