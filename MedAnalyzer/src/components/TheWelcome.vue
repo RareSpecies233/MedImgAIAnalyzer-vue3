@@ -1,18 +1,25 @@
 <script setup lang="ts">
 import WelcomeItem from './WelcomeItem.vue'
-import DocumentationIcon from './icons/IconDocumentation.vue'
 import ToolingIcon from './icons/IconTooling.vue'
 import EcosystemIcon from './icons/IconEcosystem.vue'
-import CommunityIcon from './icons/IconCommunity.vue'
-import SupportIcon from './icons/IconSupport.vue'
+// local SVG icons kept as fallback (Documentation, Community, Support were migrated to @vicons/tabler)
+// import DocumentationIcon from './icons/IconDocumentation.vue'
+// import CommunityIcon from './icons/IconCommunity.vue'
+// import SupportIcon from './icons/IconSupport.vue'
 
-const openReadmeInEditor = () => fetch('/__open-in-editor?file=README.md')
+// xicons (via @vicons/*) — using per-icon imports to keep bundle size small
+import Book from '@vicons/tabler/Book'
+import Users from '@vicons/tabler/Users'
+import Heart from '@vicons/tabler/Heart'
+import { Icon } from '@vicons/utils'
+
+const openReadmeInEditor = () => fetch('/__open-in-editor?file=README.md') 
 </script>
 
 <template>
   <WelcomeItem>
     <template #icon>
-      <DocumentationIcon />
+      <Icon size="20"><Book /></Icon>
     </template>
     <template #heading>Documentation</template>
 
@@ -66,7 +73,7 @@ const openReadmeInEditor = () => fetch('/__open-in-editor?file=README.md')
 
   <WelcomeItem>
     <template #icon>
-      <CommunityIcon />
+      <Icon size="20"><Users /></Icon>
     </template>
     <template #heading>Community</template>
 
@@ -84,7 +91,7 @@ const openReadmeInEditor = () => fetch('/__open-in-editor?file=README.md')
 
   <WelcomeItem>
     <template #icon>
-      <SupportIcon />
+      <Icon size="20"><Heart /></Icon>
     </template>
     <template #heading>Support Vue</template>
 
