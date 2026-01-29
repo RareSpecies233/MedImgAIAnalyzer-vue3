@@ -74,6 +74,22 @@ html[data-theme="light"] body {
   -webkit-text-fill-color: var(--color-text) !important;
 }
 
+/* Ensure teleported UI overlays (dialog, tooltips, form errors) render above
+   the app and are not clipped by containers with overflow/containment. */
+.n-overlay {
+  z-index: 9000 !important;
+  overflow: visible !important;
+}
+.n-overlay .n-dialog,
+.n-overlay .n-dialog__wrapper {
+  overflow: visible !important;
+}
+.n-overlay .n-form-item__error,
+.n-overlay .n-tooltip,
+.n-overlay .n-message {
+  z-index: 9100 !important;
+}
+
 *,
 *::before,
 *::after {

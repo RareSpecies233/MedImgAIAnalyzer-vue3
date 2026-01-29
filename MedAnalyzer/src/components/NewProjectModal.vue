@@ -1,5 +1,5 @@
 <template>
-  <n-dialog :show="props.show" :closable="false" @update:show="(v) => emit('update:show', v)">
+  <n-dialog teleported to="body" :show="props.show" :closable="false" @update:show="emit('update:show', $event)">
     <template #title>
       <div class="modal-title">
         <span id="new-project-title">新建项目</span>
