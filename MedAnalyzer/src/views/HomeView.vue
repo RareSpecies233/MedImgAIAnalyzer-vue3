@@ -119,9 +119,6 @@ async function saveNote() {
           <div v-else-if="projects.length === 0" class="empty" role="status" aria-live="polite">
             <div class="empty-block">
               <p>暂无项目，请先创建项目</p>
-              <n-space>
-                <n-button size="small" class="primary-cta" @click="showNew = true">新建项目</n-button>
-              </n-space>
             </div>
           </div>
           <ul v-else>
@@ -301,6 +298,7 @@ async function saveNote() {
 .btn-cancel{border-color:#ef4444}
 .empty{color:rgba(75,85,99,0.9);padding:28px;text-align:center}
 .empty-detail{display:flex;align-items:center;justify-content:center;color:rgba(75,85,99,0.9)}
+.empty-state{display:flex;align-items:center;justify-content:center;height:100%;color:rgba(75,85,99,0.9)}
 .confirm-box{margin-top:18px;padding:12px;border-radius:8px;background:linear-gradient(180deg,#fff,#fff);box-shadow:0 1px 0 rgba(2,6,23,0.04)}
 .confirm-row{margin:8px 0}
 .confirm-row.buttons{display:flex;gap:10px}
