@@ -5,9 +5,9 @@
 </template>
 
 <style>
-@media (min-width: 1024px) {
+@media (min-width: 100px) {
   .about {
-    min-height: 100vh;
+    min-height: 50vh;
     display: flex;
     align-items: center;
   }
