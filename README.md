@@ -3,12 +3,13 @@
 #### **ui库使用NaiveUI**
 #### **图标使用NaiveUI配套的xicons**
 
+#### 不开后端运行时dev环境报错是feature, do not fix
 ---
 
 # 文档
 
 
-- [前端项目介绍.md](docs/前端项目介绍.md)
+- [前端项目介绍.md](前端项目介绍.md)
 - [api文档](https://github.com/Rare-Specie/MedImgAIAnalyzer-cppServer/blob/main/Api.md)
 
 ---

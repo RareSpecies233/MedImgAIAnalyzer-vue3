@@ -6,12 +6,54 @@ export type Project = {
   note?: string
 }
 
+export type ProjectConfig = {
+  uuid: string
+  raw: 'png' | 'npz' | 'dcm' | 'nii' | false
+  nii: true | false | 'raw'
+  dcm: true | false | 'raw'
+  semi: true | false
+  'semi-xL': number
+  'semi-xR': number
+  'semi-yL': number
+  'semi-yR': number
+  PD: false | 'raw' | 'semi'
+  'PD-nii': boolean
+  'PD-dcm': boolean
+  'PD-3d': boolean
+  [key: string]: unknown
+}
+
+export class ServerOfflineError extends Error {
+  constructor(message = '服务器离线') {
+    super(message)
+    this.name = 'ServerOfflineError'
+  }
+}
+
 const API_BASE = '/api/projects'
+
+async function checkServerHealth(): Promise<boolean> {
+  try {
+    const res = await fetch('/api/health')
+    return res.ok
+  } catch {
+    return false
+  }
+}
 
 export async function listProjects(): Promise<Project[]> {
   // 强制使用文档中规定的 info.json 接口；不再回退到 /api/projects
-  const res = await fetch(`${API_BASE}/info.json`)
+  let res: Response
+  try {
+    res = await fetch(`${API_BASE}/info.json`)
+  } catch (err) {
+    const online = await checkServerHealth()
+    if (!online) throw new ServerOfflineError()
+    throw err
+  }
   if (!res.ok) {
+    const online = await checkServerHealth()
+    if (!online) throw new ServerOfflineError()
     const text = await res.text().catch(() => '')
     throw new Error(`无法获取项目列表：${res.status}${text ? ` — ${text}` : ''}`)
   }
@@ -28,6 +70,15 @@ export async function getProject(uuid: string): Promise<Project> {
   const res = await fetch(`${API_BASE}/${uuid}`)
   if (!res.ok) throw new Error('无法获取项目: ' + res.status)
   return (await res.json()) as Project
+}
+
+export async function getProjectJson(uuid: string): Promise<ProjectConfig> {
+  const res = await fetch(`${API_BASE}/${uuid}/project.json`)
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`无法获取 project.json：${res.status}${text ? ` — ${text}` : ''}`)
+  }
+  return (await res.json()) as ProjectConfig
 }
 
 export async function deleteProject(uuid: string): Promise<Response> {

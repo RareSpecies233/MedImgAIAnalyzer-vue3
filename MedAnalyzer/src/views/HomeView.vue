@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { listProjects, deleteProject, updateProjectNote, type Project } from '../api/projects'
+import { listProjects, deleteProject, updateProjectNote, type Project, ServerOfflineError } from '../api/projects'
 import NewProjectModal from '../components/NewProjectModal.vue'
 
 const router = useRouter()
@@ -15,11 +15,22 @@ const deleteConfirm = ref('')
 const isEditingNote = ref(false)
 const savingNote = ref(false)
 const noteDraft = ref('')
+const serverOffline = ref(false)
 
 async function load() {
   loading.value = true
+  serverOffline.value = false
   try {
     projects.value = await listProjects()
+  } catch (err: any) {
+    if (err instanceof ServerOfflineError) {
+      serverOffline.value = true
+      projects.value = []
+      selected.value = null
+      return
+    }
+    console.error(err)
+    alert('加载失败：' + (err?.message || err))
   } finally {
     loading.value = false
   }
@@ -130,7 +141,9 @@ async function saveNote() {
           <div v-if="loading" class="empty" role="status" aria-live="polite">正在加载项目…</div>
           <div v-else-if="projects.length === 0" class="empty" role="status" aria-live="polite">
             <div class="empty-block">
-              <p>暂无项目，请先创建项目</p>
+              <p v-if="serverOffline">错误：服务器离线</p>
+              <p v-else>暂无项目，请先创建项目</p>
+              <n-button v-if="serverOffline" size="small" tertiary :loading="loading" @click="load">刷新</n-button>
             </div>
           </div>
           <ul v-else>
