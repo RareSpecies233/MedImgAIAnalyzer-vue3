@@ -13,7 +13,7 @@
     <section class="module dev">
       <div class="module-head">
         <h2>开发者模式</h2>
-        <n-tag size="small" type="warning" :bordered="false">开发中</n-tag>
+        <n-button size="small" tertiary :loading="loading" @click="load">刷新</n-button>
       </div>
       <div class="module-body">
         <div v-if="loading" class="state">正在加载项目信息…</div>

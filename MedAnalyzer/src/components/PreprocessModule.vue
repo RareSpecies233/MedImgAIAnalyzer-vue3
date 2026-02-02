@@ -15,10 +15,10 @@
             <div class="upload-box">正在初始化中…</div>
           </template>
           <template v-else-if="rawValue === false">
-            <button class="upload-box clickable" type="button" @click="openUpload">
+            <n-button class="upload-box clickable" quaternary @click="openUpload">
               <div class="upload-icon">⬆</div>
               <div>尚未上传文件</div>
-            </button>
+            </n-button>
           </template>
           <template v-else>
             <div class="player">
@@ -29,7 +29,7 @@
                 :max="Math.max(0, pngList.length - 1)"
                 :step="1"
                 :disabled="pngList.length === 0"
-                :format-tooltip="false"
+                :show-tooltip="false"
                 :tooltip="false"
                 class="slider"
               />
@@ -45,26 +45,24 @@
                 <div class="crop-window" :style="cropWindowStyle">
                   <img class="base-image" :style="cropImageStyle" :src="currentImageUrl" alt="png" />
                   <div v-if="showMarked" class="mark-layer">
-                    <img
-                      class="mark-image"
+                    <div
+                      class="mark-mask"
                       :class="markFilterClass"
-                      :style="[cropImageStyle, markFilterStyle]"
-                      :src="currentMarkedUrl"
-                      alt="marked"
-                    />
+                      :style="[cropImageStyle, markMaskStyle]"
+                    ></div>
                   </div>
                 </div>
                 <div v-if="showCropOverlay" class="crop-overlay" :style="cropOverlayStyle"></div>
               </template>
             </div>
-            <div v-if="showCropHint" class="crop-hint">当前显示裁切过的影像-在裁切图片中可复原</div>
+            <div v-if="showCropHint" class="crop-hint">当前显示裁切过的影像，在裁切图片将所有值设置为【-1】以关闭裁切</div>
           </template>
         </div>
 
         <div class="actions">
           <template v-if="rawValue === false">
             <p class="note">为初始化，请先上传文件</p>
-            <n-button size="small" type="primary" @click="openUpload">上传文件</n-button>
+            <n-button size="small" @click="openUpload">上传文件</n-button>
           </template>
 
           <template v-else-if="!isCropping">
@@ -74,8 +72,8 @@
               <n-button size="small" @click="downloadProcessed('nii')">转换为nii</n-button>
               <n-button size="small" @click="downloadProcessed('dcm')">转换为dcm</n-button>
               <n-divider />
-              <n-button size="small" type="primary" @click="enterCrop">裁切图像</n-button>
-              <n-button v-if="canToggleMark" size="small" secondary @click="toggleMark">
+              <n-button size="small" @click="enterCrop">裁切图像</n-button>
+              <n-button v-if="canToggleMark" size="small" @click="toggleMark">
                 {{ showMarked ? '关闭标注显示' : '启用标注显示' }}
               </n-button>
               <n-space v-if="canToggleMark" align="center" size="small">
@@ -104,7 +102,8 @@
                 />
                 <n-input-number v-model:value="cropDraft[field.key]" :min="-1" :max="511" size="small" />
               </div>
-              <n-space justify="end">
+              <n-space justify="end" align="center">
+                <span class="crop-tip">【-1】为不裁切</span>
                 <n-button size="small" tertiary @click="cancelCrop">取消</n-button>
                 <n-button size="small" type="primary" :loading="savingCrop" @click="saveCrop">确定</n-button>
               </n-space>
@@ -180,7 +179,7 @@
     teleported
     :mask-closable="false"
     :close-on-esc="false"
-    @update:show="(v) => (showConfirmModal = v)"
+    @update:show="(v: boolean) => (showConfirmModal = v)"
   >
     <n-card class="modal-card" :bordered="false" role="dialog" aria-labelledby="confirm-title">
       <template #header>
@@ -283,7 +282,7 @@ const cropDraft = reactive<CropValues>({
   'semi-yR': -1,
 })
 
-const cropFields = [
+const cropFields: Array<{ key: keyof CropValues; label: string }> = [
   { key: 'semi-xL', label: '左侧' },
   { key: 'semi-xR', label: '右侧' },
   { key: 'semi-yL', label: '上侧' },
@@ -314,14 +313,15 @@ const sliderIndicator = computed(() => {
 })
 
 const isSemiActive = computed(() => (projectConfig.value ? projectConfig.value.semi !== false : false))
+const isCropApplied = computed(() => !isCropping.value && isSemiActive.value)
 
-const showCropOverlay = computed(() => isCropping.value || isSemiActive.value)
+const showCropOverlay = computed(() => isCropping.value)
 const markFilterOptions = [
   { label: '绿色', value: 'green' },
   { label: '红色', value: 'red' },
   { label: '蓝色', value: 'blue' },
   { label: '彩色', value: 'rainbow' },
-  { label: '关闭', value: 'off' },
+  { label: '原色', value: 'off' },
 ]
 
 function getActiveCropValues(): CropValues {
@@ -361,16 +361,22 @@ const cropOverlayStyle = computed(() => {
 })
 
 const cropWindowStyle = computed(() => {
-  if (!showCropOverlay.value) return { width: '100%', height: '100%' }
-  const { width, height } = normalizeCrop(getActiveCropValues())
-  return {
-    width: `${Math.max(1, width)}px`,
-    height: `${Math.max(1, height)}px`,
+  if (isCropping.value) {
+    return { width: '100%', height: '100%' }
   }
+  if (isCropApplied.value) {
+    const { width, height } = normalizeCrop(getActiveCropValues())
+    return {
+      width: `${Math.max(1, width)}px`,
+      height: `${Math.max(1, height)}px`,
+    }
+  }
+  return { width: '100%', height: '100%' }
 })
 
 const cropImageStyle = computed(() => {
-  if (!showCropOverlay.value) return {}
+  if (isCropping.value) return {}
+  if (!isCropApplied.value) return {}
   const { left, top } = normalizeCrop(getActiveCropValues())
   return {
     transform: `translate(${-left}px, ${-top}px)`,
@@ -385,20 +391,35 @@ function clampValue(value: number, min: number, max: number) {
 const markFilterStyle = computed(() => {
   switch (markFilter.value) {
     case 'green':
-      return { filter: 'hue-rotate(110deg) saturate(200%) brightness(1.05)' }
+      return { backgroundColor: '#22c55e' }
     case 'red':
-      return { filter: 'hue-rotate(330deg) saturate(220%) brightness(1.05)' }
+      return { backgroundColor: '#ef4444' }
     case 'blue':
-      return { filter: 'hue-rotate(210deg) saturate(200%) brightness(1.05)' }
+      return { backgroundColor: '#3b82f6' }
     case 'rainbow':
-      return {}
+      return { backgroundColor: '#22c55e' }
     case 'off':
     default:
-      return {}
+      return { backgroundColor: '#ffffff' }
   }
 })
 
 const markFilterClass = computed(() => (markFilter.value === 'rainbow' ? 'filter-rainbow' : ''))
+
+const markMaskStyle = computed(() => {
+  if (!currentMarkedUrl.value) return {}
+  return {
+    ...markFilterStyle.value,
+    WebkitMaskImage: `url(${currentMarkedUrl.value})`,
+    maskImage: `url(${currentMarkedUrl.value})`,
+    WebkitMaskRepeat: 'no-repeat',
+    maskRepeat: 'no-repeat',
+    WebkitMaskSize: '512px 512px',
+    maskSize: '512px 512px',
+    WebkitMaskPosition: 'left top',
+    maskPosition: 'left top',
+  }
+})
 
 function toMarkedFilename(filename: string) {
   const dotIndex = filename.lastIndexOf('.')
@@ -432,6 +453,7 @@ async function updateCurrentImages() {
     return
   }
   const filename = pngList.value[currentIndex.value]
+  if (!filename) return
   try {
     currentImageUrl.value = await ensureCachedUrl(pngCache, filename, buildPngUrl(filename))
   } catch (err) {
@@ -798,17 +820,18 @@ onBeforeUnmount(() => {
 .image-frame{width:512px;height:512px;border-radius:12px;overflow:hidden;background:#0f172a;position:relative;display:flex;align-items:center;justify-content:center}
 .base-image{width:512px;height:512px;object-fit:contain;display:block}
 .mark-layer{position:absolute;inset:0;pointer-events:none}
-.mark-image{width:512px;height:512px;object-fit:contain;display:block}
+.mark-mask{width:512px;height:512px;display:block}
 .crop-window{position:relative;overflow:hidden;display:flex;align-items:flex-start;justify-content:flex-start}
 .crop-overlay{position:absolute;border:2px solid #38bdf8;box-shadow:0 0 0 9999px rgba(15,23,42,0.55);pointer-events:none}
 .player{display:flex;align-items:center;gap:10px;margin-left:-8px}
-.slider-label{min-width:40px;font-size:12px;color:#64748b;text-align:right}
+.slider-label{min-width:48px;font-size:12px;color:#64748b;text-align:right}
 .slider{width:420px}
-.crop-hint{font-size:12px;color:#475569}
+.crop-hint{font-size:16px;color:#475569}
 .note{color:#64748b;font-size:13px}
 .crop-controls{display:flex;flex-direction:column;gap:12px}
 .crop-row{display:grid;grid-template-columns:80px 1fr 120px;gap:10px;align-items:center}
 .crop-label{font-size:13px;color:#475569}
+.crop-tip{font-size:12px;color:#64748b}
 .modal-card{width:min(92vw,640px);border-radius:12px;box-shadow:0 20px 50px rgba(2,6,23,0.2)}
 .modal-title{display:flex;align-items:center;justify-content:space-between}
 .modal-body{display:flex;flex-direction:column;gap:12px}
@@ -824,7 +847,7 @@ onBeforeUnmount(() => {
 .file-status{font-size:12px;color:#475569;text-align:right}
 .file-progress :deep(.n-progress){margin:0}
 .mark-filter-label{font-size:12px;color:#64748b}
-.mark-filter-select{min-width:120px}
+.mark-filter-select{min-width:80px}
 .filter-rainbow{animation:mark-hue 2.6s linear infinite}
 @keyframes mark-hue{0%{filter:hue-rotate(0deg) saturate(200%) brightness(1.05)}100%{filter:hue-rotate(360deg) saturate(200%) brightness(1.05)}}
 @media (max-width: 900px){
