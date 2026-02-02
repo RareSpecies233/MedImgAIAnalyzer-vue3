@@ -70,8 +70,8 @@
 /* Make sure body/UA controls render light even if other selectors are specific */
 html[data-theme="light"] body {
   background: var(--color-background) !important;
-  color: var(--color-text) !important;
-  -webkit-text-fill-color: var(--color-text) !important;
+  /* color: var(--color-text) !important;
+  -webkit-text-fill-color: var(--color-text) !important; */
 }
 
 /* Ensure teleported UI overlays (dialog, tooltips, form errors) render above

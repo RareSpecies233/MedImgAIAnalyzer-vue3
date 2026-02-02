@@ -318,7 +318,7 @@ async function saveNote() {
 .detail-actions::after{content:"";position:absolute;left:0;right:0;bottom:-8px;height:8px;background:#fff}
 .btn{padding:8px 12px;border-radius:6px;border:1px solid #e6e9ef;background:#fff;cursor:pointer;transition:background-color 120ms ease, box-shadow 120ms ease;transform:none}
 .btn:active{transform:none}
-.btn-primary{background:var(--accent);color:#fff;border-color:rgba(59,130,246,0.8)}
+.btn-primary{background:var(--accent);color:#22c55e;border-color:rgba(59,130,246,0.8)}
 .btn-secondary{background:transparent;border:1px solid #e6e9ef}
 .btn-danger{background:#fff;color:#ef4444;border-color:#ef4444}
 .btn-open{border-color:#22c55e}

@@ -76,14 +76,13 @@
               <n-button v-if="canToggleMark" size="small" @click="toggleMark">
                 {{ showMarked ? '关闭标注显示' : '启用标注显示' }}
               </n-button>
-              <n-space v-if="canToggleMark" align="center" size="small">
+              <n-space v-if="canToggleMark && showMarked" align="center" size="small">
                 <span class="mark-filter-label">标注滤镜</span>
                 <n-select
                   v-model:value="markFilter"
                   :options="markFilterOptions"
                   size="small"
                   class="mark-filter-select"
-                  :disabled="!showMarked"
                 />
               </n-space>
             </n-space>
@@ -292,7 +291,7 @@ const cropFields: Array<{ key: keyof CropValues; label: string }> = [
 const rawValue = computed(() => projectConfig.value?.raw ?? false)
 const canToggleMark = computed(() => rawValue.value === 'markednpz')
 const showCropHint = computed(() =>
-  !isCropping.value && projectConfig.value ? projectConfig.value.semi !== false : false,
+  !isCropping.value && projectConfig.value ? projectConfig.value.semi === true : false,
 )
 
 const allowMultiple = computed(() => selectedType.value !== 'nii')
@@ -700,6 +699,11 @@ function cancelCrop() {
 async function saveCrop() {
   savingCrop.value = true
   try {
+    const nextSemi =
+      cropDraft['semi-xL'] !== -1 ||
+      cropDraft['semi-xR'] !== -1 ||
+      cropDraft['semi-yL'] !== -1 ||
+      cropDraft['semi-yR'] !== -1
     await fetch(`/api/projects/${props.uuid}/semi`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -712,7 +716,7 @@ async function saveCrop() {
     })
     projectConfig.value = {
       ...(projectConfig.value || {}),
-      semi: true,
+      semi: nextSemi,
       'semi-xL': cropDraft['semi-xL'],
       'semi-xR': cropDraft['semi-xR'],
       'semi-yL': cropDraft['semi-yL'],
@@ -826,7 +830,7 @@ onBeforeUnmount(() => {
 .player{display:flex;align-items:center;gap:10px;margin-left:-8px}
 .slider-label{min-width:48px;font-size:12px;color:#64748b;text-align:right}
 .slider{width:420px}
-.crop-hint{font-size:16px;color:#475569}
+.crop-hint{font-size:16px;color:#ff0000}
 .note{color:#64748b;font-size:13px}
 .crop-controls{display:flex;flex-direction:column;gap:12px}
 .crop-row{display:grid;grid-template-columns:80px 1fr 120px;gap:10px;align-items:center}
