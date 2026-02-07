@@ -12,7 +12,7 @@
           <n-button size="small" type="primary" @click="openAnalysisModal">开始/重新分析</n-button>
           <span class="analysis-note">【每次分析都会覆盖之前的分析结果，请谨慎操作】</span>
         </div>
-        <div class="analysis-downloads">
+        <div v-if="hasAnalysis" class="analysis-downloads">
           <n-space size="small" wrap>
             <n-button size="small" @click="downloadProcessed('npz')">下载处理过的NPZ序列</n-button>
             <n-button size="small" @click="downloadProcessed('png')">下载处理过的PNG序列</n-button>
@@ -28,15 +28,20 @@
           <div v-if="showSemiHint" class="semi-hint">当前显示裁切过的Ai分析影像</div>
           <div class="display-grid" :class="{ dual: showDual }">
             <div v-if="showDual" class="viewer-card">
-              <div class="viewer-head">原影像标注显示</div>
+              <div class="viewer-head">
+                <span>原影像标注显示</span>
+                <n-button size="small" :disabled="rawList.length === 0" @click="toggleMark('raw')">
+                  {{ showRawMarked ? '关闭标注显示' : '显示标注' }}
+                </n-button>
+              </div>
               <div class="viewer-controls">
                 <div class="slider-label">{{ rawSliderIndicator }}</div>
                 <n-slider
-                  v-model:value="rawViewer.currentIndex"
+                  v-model:value="rawIndex"
                   :min="0"
-                  :max="Math.max(0, rawViewer.list.length - 1)"
+                  :max="Math.max(0, rawList.length - 1)"
                   :step="1"
-                  :disabled="rawViewer.list.length === 0"
+                  :disabled="rawList.length === 0"
                   :show-tooltip="false"
                   :tooltip="false"
                   class="slider"
@@ -44,10 +49,10 @@
                 <n-button
                   size="small"
                   secondary
-                  :disabled="rawViewer.list.length === 0"
+                  :disabled="rawList.length === 0"
                   @click="togglePlay('raw')"
                 >
-                  {{ rawViewer.isPlaying ? '暂停' : '播放' }}
+                  {{ rawPlaying ? '暂停' : '播放' }}
                 </n-button>
               </div>
               <div
@@ -55,27 +60,43 @@
                 @wheel.prevent="onWheel('raw', $event)"
                 @pointerdown="onPointerDown('raw', $event)"
               >
-                <template v-if="rawViewer.list.length === 0">
+                <template v-if="rawList.length === 0">
                   <div class="empty-frame">暂无 PNG 序列</div>
                 </template>
                 <template v-else>
                   <div class="image-canvas" :style="rawTransformStyle">
-                    <img class="base-image" :src="rawViewer.currentUrl" alt="raw" />
+                    <img class="base-image" :src="rawCurrentUrl" alt="raw" draggable="false" />
+                    <img
+                      v-if="showRawMarked && rawMarkedUrl"
+                      class="mark-image"
+                      :src="rawMarkedUrl"
+                      alt="raw marked"
+                      draggable="false"
+                    />
                   </div>
                 </template>
               </div>
             </div>
 
             <div class="viewer-card">
-              <div class="viewer-head">Ai分析影像标注显示</div>
+              <div class="viewer-head">
+                <span>Ai分析影像标注显示</span>
+                <n-button
+                  size="small"
+                  :disabled="processedList.length === 0"
+                  @click="toggleMark('processed')"
+                >
+                  {{ showProcessedMarked ? '关闭标注显示' : '显示标注' }}
+                </n-button>
+              </div>
               <div class="viewer-controls">
                 <div class="slider-label">{{ processedSliderIndicator }}</div>
                 <n-slider
-                  v-model:value="processedViewer.currentIndex"
+                  v-model:value="processedIndex"
                   :min="0"
-                  :max="Math.max(0, processedViewer.list.length - 1)"
+                  :max="Math.max(0, processedList.length - 1)"
                   :step="1"
-                  :disabled="processedViewer.list.length === 0"
+                  :disabled="processedList.length === 0"
                   :show-tooltip="false"
                   :tooltip="false"
                   class="slider"
@@ -83,10 +104,10 @@
                 <n-button
                   size="small"
                   secondary
-                  :disabled="processedViewer.list.length === 0"
+                  :disabled="processedList.length === 0"
                   @click="togglePlay('processed')"
                 >
-                  {{ processedViewer.isPlaying ? '暂停' : '播放' }}
+                  {{ processedPlaying ? '暂停' : '播放' }}
                 </n-button>
               </div>
               <div
@@ -94,12 +115,19 @@
                 @wheel.prevent="onWheel('processed', $event)"
                 @pointerdown="onPointerDown('processed', $event)"
               >
-                <template v-if="processedViewer.list.length === 0">
+                <template v-if="processedList.length === 0">
                   <div class="empty-frame">暂无 PNG 序列</div>
                 </template>
                 <template v-else>
                   <div class="image-canvas" :style="processedTransformStyle">
-                    <img class="base-image" :src="processedViewer.currentUrl" alt="processed" />
+                    <img class="base-image" :src="processedCurrentUrl" alt="processed" draggable="false" />
+                    <img
+                      v-if="showProcessedMarked && processedMarkedUrl"
+                      class="mark-image"
+                      :src="processedMarkedUrl"
+                      alt="processed marked"
+                      draggable="false"
+                    />
                   </div>
                 </template>
               </div>
@@ -108,12 +136,15 @@
         </template>
       </div>
 
-      <div class="analysis-footer">
+      <div v-if="hasAnalysis" class="analysis-footer">
         <n-space size="small" wrap>
           <n-button size="small" @click="resetTransforms">恢复默认影像显示模式</n-button>
           <n-button size="small" @click="rotateClockwise">旋转（顺时针90度）</n-button>
           <n-button size="small" @click="toggleSyncZoom">
             {{ syncZoom ? '关闭同步缩放' : '启用同步缩放' }}
+          </n-button>
+          <n-button size="small" @click="toggleSyncPlay">
+            {{ syncPlay ? '关闭同步播放' : '启用同步播放' }}
           </n-button>
           <n-button size="small" @click="toggleSyncPan">
             {{ syncPan ? '关闭同步平移' : '启用同步平移' }}
@@ -150,7 +181,7 @@
           </n-space>
         </template>
         <template v-else-if="analysisPhase === 'running'">
-          <div class="modal-tip">正在Ai分析中，请稍候…</div>
+          <div class="modal-tip">正在Ai分析中，请稍候…（需要一段时间，请耐心等待）</div>
         </template>
         <template v-else-if="analysisPhase === 'done'">
           <div class="modal-tip">处理完成</div>
@@ -207,19 +238,6 @@ import { getProjectJson, type ProjectConfig } from '../api/projects'
 type ViewerKey = 'raw' | 'processed'
 type AnalysisMode = 'raw' | 'semi'
 
-type ViewerState = {
-  list: ReturnType<typeof ref<string[]>>
-  currentIndex: ReturnType<typeof ref<number>>
-  isPlaying: ReturnType<typeof ref<boolean>>
-  timer: ReturnType<typeof ref<number | null>>
-  currentUrl: ReturnType<typeof ref<string>>
-  cache: Map<string, string>
-  transform: { scale: number; x: number; y: number; rotation: number }
-  dragging: ReturnType<typeof ref<boolean>>
-  dragStart: { x: number; y: number }
-  dragOrigin: { x: number; y: number }
-}
-
 const props = defineProps<{ uuid: string }>()
 
 const projectConfig = ref<ProjectConfig | null>(null)
@@ -235,57 +253,78 @@ const downloadMessage = ref('')
 const downloadClosable = ref(true)
 
 const syncZoom = ref(false)
+const syncPlay = ref(false)
 const syncPan = ref(false)
 const activeDragKey = ref<ViewerKey | null>(null)
 
-const rawViewer = createViewer()
-const processedViewer = createViewer()
+const rawList = ref<string[]>([])
+const processedList = ref<string[]>([])
+const rawMarkedList = ref<string[]>([])
+const processedMarkedList = ref<string[]>([])
+const rawIndex = ref(0)
+const processedIndex = ref(0)
+const rawPlaying = ref(false)
+const processedPlaying = ref(false)
+const rawPlayTimer = ref<number | null>(null)
+const processedPlayTimer = ref<number | null>(null)
+const rawCurrentUrl = ref('')
+const processedCurrentUrl = ref('')
 
 const showDual = computed(() => projectConfig.value?.raw === 'markednpz')
 const showSemiHint = computed(() => projectConfig.value?.PD === 'semi')
 const showEmpty = computed(() => !projectConfig.value || projectConfig.value.PD === false)
 const canAnalyzeSemi = computed(() => projectConfig.value?.semi !== false)
+const hasAnalysis = computed(() => projectConfig.value?.PD !== false)
 
-const rawSliderIndicator = computed(() => formatIndicator(rawViewer.list.value, rawViewer.currentIndex.value))
-const processedSliderIndicator = computed(() =>
-  formatIndicator(processedViewer.list.value, processedViewer.currentIndex.value),
-)
+const showRawMarked = ref(false)
+const showProcessedMarked = ref(false)
+const rawMarkedUrl = ref('')
+const processedMarkedUrl = ref('')
+const rawCache = new Map<string, string>()
+const processedCache = new Map<string, string>()
+const rawMarkedCache = new Map<string, string>()
+const processedMarkedCache = new Map<string, string>()
 
-const rawTransformStyle = computed(() => buildTransformStyle(rawViewer.transform))
-const processedTransformStyle = computed(() => buildTransformStyle(processedViewer.transform))
+const rawTransform = reactive({ scale: 1, x: 0, y: 0, rotation: 0 })
+const processedTransform = reactive({ scale: 1, x: 0, y: 0, rotation: 0 })
+const rawDragging = ref(false)
+const processedDragging = ref(false)
+const rawDragStart = reactive({ x: 0, y: 0 })
+const processedDragStart = reactive({ x: 0, y: 0 })
+const rawDragOrigin = reactive({ x: 0, y: 0 })
+const processedDragOrigin = reactive({ x: 0, y: 0 })
 
-function createViewer(): ViewerState {
-  return {
-    list: ref<string[]>([]),
-    currentIndex: ref(0),
-    isPlaying: ref(false),
-    timer: ref(null),
-    currentUrl: ref(''),
-    cache: new Map(),
-    transform: reactive({ scale: 1, x: 0, y: 0, rotation: 0 }),
-    dragging: ref(false),
-    dragStart: reactive({ x: 0, y: 0 }),
-    dragOrigin: reactive({ x: 0, y: 0 }),
-  }
-}
+const rawSliderIndicator = computed(() => formatIndicator(rawList.value, rawIndex.value))
+const processedSliderIndicator = computed(() => formatIndicator(processedList.value, processedIndex.value))
+
+const rawTransformStyle = computed(() => buildTransformStyle(rawTransform))
+const processedTransformStyle = computed(() => buildTransformStyle(processedTransform))
 
 function formatIndicator(list: string[], index: number) {
   if (!list.length) return '0 / 0'
   return `${index + 1} / ${list.length}`
 }
 
-function buildTransformStyle(transform: ViewerState['transform']) {
+function buildTransformStyle(transform: { scale: number; x: number; y: number; rotation: number }) {
   return {
     transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale}) rotate(${transform.rotation}deg)`,
   }
 }
 
 function buildMarkedUrl(filename: string) {
-  return `/api/project/${props.uuid}/markedpng/${filename}`
+  return `/api/project/${props.uuid}/markedpng/${encodeURIComponent(filename)}`
+}
+
+function buildRawUrl(filename: string) {
+  return `/api/project/${props.uuid}/png/${encodeURIComponent(filename)}`
 }
 
 function buildProcessedUrl(filename: string) {
-  return `/api/project/${props.uuid}/processed/png/${filename}`
+  return `/api/project/${props.uuid}/png/${encodeURIComponent(filename)}`
+}
+
+function buildProcessedMarkedUrl(filename: string) {
+  return `/api/project/${props.uuid}/processed/png/${encodeURIComponent(filename)}`
 }
 
 async function ensureCachedUrl(cache: Map<string, string>, key: string, url: string) {
@@ -299,18 +338,77 @@ async function ensureCachedUrl(cache: Map<string, string>, key: string, url: str
   return objectUrl
 }
 
-async function updateViewerImage(viewer: ViewerState, buildUrl: (name: string) => string) {
-  if (!viewer.list.value.length) {
-    viewer.currentUrl.value = ''
+async function updateRawImages() {
+  if (!rawList.value.length) {
+    rawCurrentUrl.value = ''
+    rawMarkedUrl.value = ''
     return
   }
-  const filename = viewer.list.value[viewer.currentIndex.value]
+  const filename = rawList.value[rawIndex.value]
   if (!filename) return
   try {
-    viewer.currentUrl.value = await ensureCachedUrl(viewer.cache, filename, buildUrl(filename))
+    rawCurrentUrl.value = await ensureCachedUrl(rawCache, filename, buildRawUrl(filename))
   } catch (err) {
     console.error(err)
-    viewer.currentUrl.value = buildUrl(filename)
+    rawCurrentUrl.value = buildRawUrl(filename)
+  }
+
+  if (showRawMarked.value) {
+    if (!rawMarkedList.value.length) {
+      await loadRawMarkedList()
+    }
+    const markedFilename = rawMarkedList.value[rawIndex.value] || filename
+    try {
+      rawMarkedUrl.value = await ensureCachedUrl(
+        rawMarkedCache,
+        markedFilename,
+        buildMarkedUrl(markedFilename),
+      )
+    } catch (err) {
+      console.error(err)
+      rawMarkedUrl.value = buildMarkedUrl(markedFilename)
+    }
+  } else {
+    rawMarkedUrl.value = ''
+  }
+}
+
+async function updateProcessedImages() {
+  if (!processedList.value.length) {
+    processedCurrentUrl.value = ''
+    processedMarkedUrl.value = ''
+    return
+  }
+  const filename = processedList.value[processedIndex.value]
+  if (!filename) return
+  try {
+    processedCurrentUrl.value = await ensureCachedUrl(
+      processedCache,
+      filename,
+      buildProcessedUrl(filename),
+    )
+  } catch (err) {
+    console.error(err)
+    processedCurrentUrl.value = buildProcessedUrl(filename)
+  }
+
+  if (showProcessedMarked.value) {
+    if (!processedMarkedList.value.length) {
+      await loadProcessedList()
+    }
+    const markedFilename = processedMarkedList.value[processedIndex.value] || filename
+    try {
+      processedMarkedUrl.value = await ensureCachedUrl(
+        processedMarkedCache,
+        markedFilename,
+        buildProcessedMarkedUrl(markedFilename),
+      )
+    } catch (err) {
+      console.error(err)
+      processedMarkedUrl.value = buildProcessedMarkedUrl(markedFilename)
+    }
+  } else {
+    processedMarkedUrl.value = ''
   }
 }
 
@@ -332,15 +430,29 @@ async function loadConfig() {
   }
 }
 
-async function loadMarkedList() {
+async function loadRawList() {
+  try {
+    const res = await fetch(`/api/project/${props.uuid}/png`)
+    if (!res.ok) throw new Error('无法获取 PNG 列表')
+    rawList.value = (await res.json()) as string[]
+    processedList.value = rawList.value
+    if (rawIndex.value >= rawList.value.length) rawIndex.value = 0
+    if (processedIndex.value >= processedList.value.length) processedIndex.value = 0
+  } catch (err) {
+    console.error(err)
+    rawList.value = []
+    processedList.value = []
+  }
+}
+
+async function loadRawMarkedList() {
   try {
     const res = await fetch(`/api/project/${props.uuid}/markedpng`)
     if (!res.ok) throw new Error('无法获取标注 PNG 列表')
-    rawViewer.list.value = (await res.json()) as string[]
-    if (rawViewer.currentIndex.value >= rawViewer.list.value.length) rawViewer.currentIndex.value = 0
+    rawMarkedList.value = (await res.json()) as string[]
   } catch (err) {
     console.error(err)
-    rawViewer.list.value = []
+    rawMarkedList.value = []
   }
 }
 
@@ -348,22 +460,19 @@ async function loadProcessedList() {
   try {
     const res = await fetch(`/api/project/${props.uuid}/processed/png`)
     if (!res.ok) throw new Error('无法获取处理 PNG 列表')
-    processedViewer.list.value = (await res.json()) as string[]
-    if (processedViewer.currentIndex.value >= processedViewer.list.value.length) {
-      processedViewer.currentIndex.value = 0
-    }
+    processedMarkedList.value = (await res.json()) as string[]
+    if (processedIndex.value >= processedList.value.length) processedIndex.value = 0
   } catch (err) {
     console.error(err)
-    processedViewer.list.value = []
+    processedMarkedList.value = []
   }
 }
 
 async function refreshModule() {
   await loadConfig()
-  if (projectConfig.value?.raw === 'markednpz') {
-    await loadMarkedList()
-  } else {
-    rawViewer.list.value = []
+  await loadRawList()
+  if (showRawMarked.value) {
+    await loadRawMarkedList()
   }
   await loadProcessedList()
 }
@@ -454,93 +563,141 @@ async function triggerDownload(url: string) {
   URL.revokeObjectURL(objectUrl)
 }
 
-function getViewer(key: ViewerKey) {
-  return key === 'raw' ? rawViewer : processedViewer
-}
-
 function togglePlay(key: ViewerKey) {
-  const viewer = getViewer(key)
-  if (viewer.isPlaying.value) {
-    stopPlay(viewer)
+  if (syncPlay.value && showDual.value) {
+    const shouldPlay = !(rawPlaying.value && processedPlaying.value)
+    if (shouldPlay) {
+      startRawPlay()
+      startProcessedPlay()
+    } else {
+      stopRawPlay()
+      stopProcessedPlay()
+    }
+    return
+  }
+  if (key === 'raw') {
+    rawPlaying.value ? stopRawPlay() : startRawPlay()
   } else {
-    startPlay(viewer)
+    processedPlaying.value ? stopProcessedPlay() : startProcessedPlay()
   }
 }
 
-function startPlay(viewer: ViewerState) {
-  if (viewer.list.value.length === 0) return
-  stopPlayTimer(viewer)
-  viewer.isPlaying.value = true
-  viewer.timer.value = window.setInterval(() => {
-    viewer.currentIndex.value = (viewer.currentIndex.value + 1) % viewer.list.value.length
+function toggleMark(key: ViewerKey) {
+  if (key === 'raw') {
+    showRawMarked.value = !showRawMarked.value
+  } else {
+    showProcessedMarked.value = !showProcessedMarked.value
+  }
+}
+
+function startRawPlay() {
+  if (rawList.value.length === 0) return
+  stopRawPlayTimer()
+  rawPlaying.value = true
+  rawPlayTimer.value = window.setInterval(() => {
+    rawIndex.value = (rawIndex.value + 1) % rawList.value.length
   }, 50)
 }
 
-function stopPlay(viewer: ViewerState) {
-  viewer.isPlaying.value = false
-  stopPlayTimer(viewer)
+function startProcessedPlay() {
+  if (processedList.value.length === 0) return
+  stopProcessedPlayTimer()
+  processedPlaying.value = true
+  processedPlayTimer.value = window.setInterval(() => {
+    processedIndex.value = (processedIndex.value + 1) % processedList.value.length
+  }, 50)
 }
 
-function stopPlayTimer(viewer: ViewerState) {
-  if (viewer.timer.value) {
-    window.clearInterval(viewer.timer.value)
-    viewer.timer.value = null
+function stopRawPlay() {
+  rawPlaying.value = false
+  stopRawPlayTimer()
+}
+
+function stopProcessedPlay() {
+  processedPlaying.value = false
+  stopProcessedPlayTimer()
+}
+
+function stopRawPlayTimer() {
+  if (rawPlayTimer.value) {
+    window.clearInterval(rawPlayTimer.value)
+    rawPlayTimer.value = null
   }
 }
 
-function applyZoom(viewer: ViewerState, nextScale: number) {
-  viewer.transform.scale = clampValue(nextScale, 0.3, 6)
+function stopProcessedPlayTimer() {
+  if (processedPlayTimer.value) {
+    window.clearInterval(processedPlayTimer.value)
+    processedPlayTimer.value = null
+  }
 }
 
-function applyPan(viewer: ViewerState, x: number, y: number) {
-  viewer.transform.x = x
-  viewer.transform.y = y
+function applyZoom(transform: { scale: number; x: number; y: number; rotation: number }, nextScale: number) {
+  transform.scale = clampValue(nextScale, 0.3, 6)
+}
+
+function applyPan(transform: { scale: number; x: number; y: number; rotation: number }, x: number, y: number) {
+  transform.x = x
+  transform.y = y
 }
 
 function onWheel(key: ViewerKey, event: WheelEvent) {
-  const viewer = getViewer(key)
-  if (viewer.list.value.length === 0) return
-  const zoomFactor = event.deltaY > 0 ? 0.9 : 1.1
-  const nextScale = viewer.transform.scale * zoomFactor
+  const hasImages = key === 'raw' ? rawList.value.length > 0 : processedList.value.length > 0
+  if (!hasImages) return
+  const zoomFactor = event.deltaY > 0 ? 0.96 : 1.04
   if (syncZoom.value && showDual.value) {
-    applyZoom(rawViewer, nextScale)
-    applyZoom(processedViewer, nextScale)
+    applyZoom(rawTransform, rawTransform.scale * zoomFactor)
+    applyZoom(processedTransform, processedTransform.scale * zoomFactor)
   } else {
-    applyZoom(viewer, nextScale)
+    const transform = key === 'raw' ? rawTransform : processedTransform
+    applyZoom(transform, transform.scale * zoomFactor)
   }
 }
 
 function onPointerDown(key: ViewerKey, event: PointerEvent) {
-  const viewer = getViewer(key)
-  if (viewer.list.value.length === 0) return
-  viewer.dragging.value = true
+  const hasImages = key === 'raw' ? rawList.value.length > 0 : processedList.value.length > 0
+  if (!hasImages) return
+  const dragging = key === 'raw' ? rawDragging : processedDragging
+  const dragStart = key === 'raw' ? rawDragStart : processedDragStart
+  const dragOrigin = key === 'raw' ? rawDragOrigin : processedDragOrigin
+  const transform = key === 'raw' ? rawTransform : processedTransform
+  dragging.value = true
   activeDragKey.value = key
-  viewer.dragStart.x = event.clientX
-  viewer.dragStart.y = event.clientY
-  viewer.dragOrigin.x = viewer.transform.x
-  viewer.dragOrigin.y = viewer.transform.y
+  dragStart.x = event.clientX
+  dragStart.y = event.clientY
+  dragOrigin.x = transform.x
+  dragOrigin.y = transform.y
+  if (syncPan.value && showDual.value) {
+    rawDragOrigin.x = rawTransform.x
+    rawDragOrigin.y = rawTransform.y
+    processedDragOrigin.x = processedTransform.x
+    processedDragOrigin.y = processedTransform.y
+  }
   window.addEventListener('pointermove', onPointerMove)
   window.addEventListener('pointerup', onPointerUp)
 }
 
 function onPointerMove(event: PointerEvent) {
   if (!activeDragKey.value) return
-  const viewer = getViewer(activeDragKey.value)
-  if (!viewer.dragging.value) return
-  const dx = event.clientX - viewer.dragStart.x
-  const dy = event.clientY - viewer.dragStart.y
+  const dragging = activeDragKey.value === 'raw' ? rawDragging : processedDragging
+  const dragStart = activeDragKey.value === 'raw' ? rawDragStart : processedDragStart
+  const dragOrigin = activeDragKey.value === 'raw' ? rawDragOrigin : processedDragOrigin
+  if (!dragging.value) return
+  const dx = event.clientX - dragStart.x
+  const dy = event.clientY - dragStart.y
   if (syncPan.value && showDual.value) {
-    applyPan(rawViewer, viewer.dragOrigin.x + dx, viewer.dragOrigin.y + dy)
-    applyPan(processedViewer, viewer.dragOrigin.x + dx, viewer.dragOrigin.y + dy)
+    applyPan(rawTransform, rawDragOrigin.x + dx, rawDragOrigin.y + dy)
+    applyPan(processedTransform, processedDragOrigin.x + dx, processedDragOrigin.y + dy)
   } else {
-    applyPan(viewer, viewer.dragOrigin.x + dx, viewer.dragOrigin.y + dy)
+    const transform = activeDragKey.value === 'raw' ? rawTransform : processedTransform
+    applyPan(transform, dragOrigin.x + dx, dragOrigin.y + dy)
   }
 }
 
 function onPointerUp() {
   if (activeDragKey.value) {
-    const viewer = getViewer(activeDragKey.value)
-    viewer.dragging.value = false
+    const dragging = activeDragKey.value === 'raw' ? rawDragging : processedDragging
+    dragging.value = false
   }
   activeDragKey.value = null
   window.removeEventListener('pointermove', onPointerMove)
@@ -548,77 +705,85 @@ function onPointerUp() {
 }
 
 function resetTransforms() {
-  resetViewerTransform(processedViewer)
-  if (showDual.value) resetViewerTransform(rawViewer)
+  resetViewerTransform(processedTransform)
+  if (showDual.value) resetViewerTransform(rawTransform)
 }
 
-function resetViewerTransform(viewer: ViewerState) {
-  viewer.transform.scale = 1
-  viewer.transform.x = 0
-  viewer.transform.y = 0
-  viewer.transform.rotation = 0
+function resetViewerTransform(transform: { scale: number; x: number; y: number; rotation: number }) {
+  transform.scale = 1
+  transform.x = 0
+  transform.y = 0
+  transform.rotation = 0
 }
 
 function rotateClockwise() {
-  rotateViewer(processedViewer)
-  if (showDual.value) rotateViewer(rawViewer)
+  rotateViewer(processedTransform)
+  if (showDual.value) rotateViewer(rawTransform)
 }
 
-function rotateViewer(viewer: ViewerState) {
-  viewer.transform.rotation = (viewer.transform.rotation + 90) % 360
+function rotateViewer(transform: { scale: number; x: number; y: number; rotation: number }) {
+  transform.rotation = (transform.rotation + 90) % 360
 }
 
 function toggleSyncZoom() {
   syncZoom.value = !syncZoom.value
-  if (syncZoom.value && showDual.value) {
-    applyZoom(rawViewer, processedViewer.transform.scale)
-  }
+}
+
+function toggleSyncPlay() {
+  syncPlay.value = !syncPlay.value
 }
 
 function toggleSyncPan() {
   syncPan.value = !syncPan.value
-  if (syncPan.value && showDual.value) {
-    applyPan(rawViewer, processedViewer.transform.x, processedViewer.transform.y)
-  }
 }
 
 function clampValue(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max)
 }
 
-watch(rawViewer.list, () => {
-  if (rawViewer.list.value.length === 0) stopPlay(rawViewer)
-  revokeCache(rawViewer.cache)
-  updateViewerImage(rawViewer, buildMarkedUrl)
+watch(rawList, (list) => {
+  if (list.length === 0) stopRawPlay()
+  revokeCache(rawCache)
+  revokeCache(rawMarkedCache)
+  updateRawImages()
 })
 
-watch(processedViewer.list, () => {
-  if (processedViewer.list.value.length === 0) stopPlay(processedViewer)
-  revokeCache(processedViewer.cache)
-  updateViewerImage(processedViewer, buildProcessedUrl)
+watch(processedList, (list) => {
+  if (list.length === 0) stopProcessedPlay()
+  revokeCache(processedCache)
+  revokeCache(processedMarkedCache)
+  updateProcessedImages()
 })
 
-watch(rawViewer.currentIndex, () => updateViewerImage(rawViewer, buildMarkedUrl))
-watch(processedViewer.currentIndex, () => updateViewerImage(processedViewer, buildProcessedUrl))
+watch([rawIndex, showRawMarked], () => {
+  updateRawImages()
+})
 
-watch(
-  () => projectConfig.value?.raw,
-  (next) => {
-    if (next === 'markednpz') loadMarkedList()
-    if (next !== 'markednpz') rawViewer.list.value = []
-  },
-)
+watch([processedIndex, showProcessedMarked], () => {
+  updateProcessedImages()
+})
+
+watch(showRawMarked, (next) => {
+  if (next) loadRawMarkedList().then(() => updateRawImages())
+})
+
+watch(rawMarkedList, () => updateRawImages())
+
+watch(processedMarkedList, () => updateProcessedImages())
+
 
 onMounted(async () => {
   await refreshModule()
 })
 
 onBeforeUnmount(() => {
-  stopPlay(rawViewer)
-  stopPlay(processedViewer)
+  stopRawPlay()
+  stopProcessedPlay()
   stopAnalysisPolling()
-  revokeCache(rawViewer.cache)
-  revokeCache(processedViewer.cache)
+  revokeCache(rawCache)
+  revokeCache(processedCache)
+  revokeCache(rawMarkedCache)
+  revokeCache(processedMarkedCache)
   window.removeEventListener('pointermove', onPointerMove)
   window.removeEventListener('pointerup', onPointerUp)
 })
@@ -641,13 +806,14 @@ onBeforeUnmount(() => {
 .display-grid{display:grid;grid-template-columns:1fr;gap:16px}
 .display-grid.dual{grid-template-columns:repeat(2,minmax(0,1fr))}
 .viewer-card{display:flex;flex-direction:column;gap:10px}
-.viewer-head{font-size:13px;color:#475569;font-weight:600}
+.viewer-head{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;color:#475569;font-weight:600}
 .viewer-controls{display:flex;align-items:center;gap:10px}
 .slider-label{min-width:48px;font-size:12px;color:#64748b;text-align:right}
 .slider{width:100%}
 .image-frame{width:100%;aspect-ratio:1/1;border-radius:12px;overflow:hidden;background:#0f172a;position:relative;display:flex;align-items:center;justify-content:center;touch-action:none}
-.image-canvas{width:512px;height:512px;display:flex;align-items:center;justify-content:center;transform-origin:center center}
-.base-image{width:512px;height:512px;object-fit:contain;display:block}
+.image-canvas{width:512px;height:512px;position:relative;display:flex;align-items:center;justify-content:center;transform-origin:center center}
+.base-image,.mark-image{width:512px;height:512px;object-fit:contain;display:block}
+.mark-image{position:absolute;inset:0;pointer-events:none}
 .empty-frame{color:#94a3b8;font-size:14px}
 .analysis-footer{margin-top:16px}
 .modal-card{width:min(92vw,640px);border-radius:12px;box-shadow:0 20px 50px rgba(2,6,23,0.2)}

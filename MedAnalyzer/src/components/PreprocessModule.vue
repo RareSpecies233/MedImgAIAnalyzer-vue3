@@ -179,7 +179,7 @@
         </div>
       </template>
       <div class="modal-body">
-        每个项目尽可初始化一次，请务必确定全部上传完后再点击确定，否则需要重新新建项目
+        每个项目仅可初始化一次，请务必确定全部上传完后再点击确定，否则需要重新新建项目
       </div>
       <template #footer>
         <n-space justify="end">
@@ -242,6 +242,7 @@ const projectConfig = ref<ProjectConfig | null>(null)
 const loadingConfig = ref(true)
 const errorConfig = ref<string | null>(null)
 const pngList = ref<string[]>([])
+const markedList = ref<string[]>([])
 const currentIndex = ref(0)
 const isPlaying = ref(false)
 const playTimer = ref<number | null>(null)
@@ -372,12 +373,6 @@ function clampValue(value: number, min: number, max: number) {
 }
 
 
-function toMarkedFilename(filename: string) {
-  const dotIndex = filename.lastIndexOf('.')
-  if (dotIndex === -1) return `${filename}_marked`
-  return `${filename.slice(0, dotIndex)}_marked${filename.slice(dotIndex)}`
-}
-
 function buildPngUrl(filename: string) {
   return `/api/project/${props.uuid}/png/${filename}`
 }
@@ -413,7 +408,10 @@ async function updateCurrentImages() {
   }
 
   if (canToggleMark.value && showMarked.value) {
-    const markedFilename = toMarkedFilename(filename)
+    if (!markedList.value.length) {
+      await loadMarkedList()
+    }
+    const markedFilename = markedList.value[currentIndex.value] || filename
     try {
       currentMarkedUrl.value = await ensureCachedUrl(
         markedCache,
@@ -458,6 +456,17 @@ async function loadPngList() {
   } catch (err) {
     console.error(err)
     pngList.value = []
+  }
+}
+
+async function loadMarkedList() {
+  try {
+    const res = await fetch(`/api/project/${props.uuid}/markedpng`)
+    if (!res.ok) throw new Error('无法获取标注 PNG 列表')
+    markedList.value = (await res.json()) as string[]
+  } catch (err) {
+    console.error(err)
+    markedList.value = []
   }
 }
 
@@ -738,6 +747,7 @@ watch(rawValue, (next) => {
   if (next !== false) loadPngList()
   if (next !== 'markednpz') {
     showMarked.value = false
+    markedList.value = []
   }
 })
 
@@ -750,6 +760,12 @@ watch(pngList, (list) => {
 
 watch([currentIndex, showMarked], () => {
   updateCurrentImages()
+})
+
+watch(showMarked, (next) => {
+  if (next && canToggleMark.value) {
+    loadMarkedList().then(() => updateCurrentImages())
+  }
 })
 
 onBeforeUnmount(() => {
