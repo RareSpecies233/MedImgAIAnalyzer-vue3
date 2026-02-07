@@ -10,11 +10,30 @@
       </n-space>
     </section>
 
-    <section class="module dev">
-      <div class="module-head">
-        <h2>开发者模式</h2>
-        <n-button size="small" tertiary :loading="loading" @click="load">刷新</n-button>
-      </div>
+    <PreprocessModule :uuid="props.uuid" />
+    <AiAnalysisModule :uuid="props.uuid" />
+    <ReconstructionModule />
+    <AiConsultModule />
+  </div>
+
+  <n-modal
+    v-if="showDevModal"
+    :show="showDevModal"
+    teleported
+    :mask-closable="false"
+    :close-on-esc="false"
+    @update:show="(v: boolean) => (showDevModal = v)"
+  >
+    <n-card class="modal-card" :bordered="false" role="dialog" aria-labelledby="dev-title">
+      <template #header>
+        <div class="modal-title">
+          <span id="dev-title">开发者模式</span>
+          <n-space>
+            <n-button size="small" tertiary :loading="loading" @click="load">刷新</n-button>
+            <n-button size="small" tertiary @click="showDevModal = false">关闭</n-button>
+          </n-space>
+        </div>
+      </template>
       <div class="module-body">
         <div v-if="loading" class="state">正在加载项目信息…</div>
         <div v-else-if="error" class="state error">加载失败：{{ error }}</div>
@@ -55,17 +74,12 @@
         </div>
         <div class="tail">【这是尾巴】</div>
       </div>
-    </section>
-
-    <PreprocessModule :uuid="props.uuid" />
-    <AiAnalysisModule />
-    <ReconstructionModule />
-    <AiConsultModule />
-  </div>
+    </n-card>
+  </n-modal>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onBeforeUnmount, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getProject, getProjectJson, type Project, type ProjectConfig } from '../api/projects'
 import PreprocessModule from '../components/PreprocessModule.vue'
@@ -79,6 +93,7 @@ const project = ref<Project | null>(null)
 const projectConfig = ref<ProjectConfig | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
+const showDevModal = ref(false)
 
 const projectConfigFields = [
   { key: 'uuid', label: 'UUID' },
@@ -129,7 +144,18 @@ function goHome() {
   router.push({ name: 'home' })
 }
 
-onMounted(load)
+function handleOpenDevModal() {
+  showDevModal.value = true
+}
+
+onMounted(() => {
+  load()
+  window.addEventListener('open-dev-modal', handleOpenDevModal as EventListener)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('open-dev-modal', handleOpenDevModal as EventListener)
+})
 </script>
 
 <style scoped>
@@ -151,6 +177,9 @@ onMounted(load)
 .kv-value{font-size:13px;color:#1f2937}
 .mono{white-space:pre-wrap;background:#f8fafc;padding:10px;border-radius:6px;font-size:12px;line-height:1.5;margin:0}
 .tail{margin-top:12px;color:#475569;font-size:13px}
+.modal-card{width:min(92vw,960px);border-radius:12px;box-shadow:0 20px 50px rgba(2,6,23,0.2)}
+.modal-title{display:flex;align-items:center;justify-content:space-between;gap:12px}
+:deep(.n-modal-mask){backdrop-filter:blur(6px);background:rgba(15,23,42,0.35)}
 @media (max-width: 900px){
   .dev-grid{grid-template-columns:1fr}
   .page-header{flex-direction:column;align-items:flex-start}

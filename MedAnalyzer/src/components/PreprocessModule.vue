@@ -45,11 +45,12 @@
                 <div class="crop-window" :style="cropWindowStyle">
                   <img class="base-image" :style="cropImageStyle" :src="currentImageUrl" alt="png" />
                   <div v-if="showMarked" class="mark-layer">
-                    <div
-                      class="mark-mask"
-                      :class="markFilterClass"
-                      :style="[cropImageStyle, markMaskStyle]"
-                    ></div>
+                    <img
+                      class="mark-image"
+                      :style="cropImageStyle"
+                      :src="currentMarkedUrl"
+                      alt="marked png"
+                    />
                   </div>
                 </div>
                 <div v-if="showCropOverlay" class="crop-overlay" :style="cropOverlayStyle"></div>
@@ -76,15 +77,6 @@
               <n-button v-if="canToggleMark" size="small" @click="toggleMark">
                 {{ showMarked ? '关闭标注显示' : '启用标注显示' }}
               </n-button>
-              <n-space v-if="canToggleMark && showMarked" align="center" size="small">
-                <span class="mark-filter-label">标注滤镜</span>
-                <n-select
-                  v-model:value="markFilter"
-                  :options="markFilterOptions"
-                  size="small"
-                  class="mark-filter-select"
-                />
-              </n-space>
             </n-space>
           </template>
 
@@ -267,7 +259,6 @@ const downloadClosable = ref(true)
 const isCropping = ref(false)
 const savingCrop = ref(false)
 const showMarked = ref(false)
-const markFilter = ref<'green' | 'red' | 'blue' | 'rainbow' | 'off'>('green')
 const pollingTimer = ref<number | null>(null)
 const currentImageUrl = ref('')
 const currentMarkedUrl = ref('')
@@ -315,13 +306,6 @@ const isSemiActive = computed(() => (projectConfig.value ? projectConfig.value.s
 const isCropApplied = computed(() => !isCropping.value && isSemiActive.value)
 
 const showCropOverlay = computed(() => isCropping.value)
-const markFilterOptions = [
-  { label: '绿色', value: 'green' },
-  { label: '红色', value: 'red' },
-  { label: '蓝色', value: 'blue' },
-  { label: '彩色', value: 'rainbow' },
-  { label: '原色', value: 'off' },
-]
 
 function getActiveCropValues(): CropValues {
   const config = projectConfig.value
@@ -387,38 +371,6 @@ function clampValue(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max)
 }
 
-const markFilterStyle = computed(() => {
-  switch (markFilter.value) {
-    case 'green':
-      return { backgroundColor: '#22c55e' }
-    case 'red':
-      return { backgroundColor: '#ef4444' }
-    case 'blue':
-      return { backgroundColor: '#3b82f6' }
-    case 'rainbow':
-      return { backgroundColor: '#22c55e' }
-    case 'off':
-    default:
-      return { backgroundColor: '#ffffff' }
-  }
-})
-
-const markFilterClass = computed(() => (markFilter.value === 'rainbow' ? 'filter-rainbow' : ''))
-
-const markMaskStyle = computed(() => {
-  if (!currentMarkedUrl.value) return {}
-  return {
-    ...markFilterStyle.value,
-    WebkitMaskImage: `url(${currentMarkedUrl.value})`,
-    maskImage: `url(${currentMarkedUrl.value})`,
-    WebkitMaskRepeat: 'no-repeat',
-    maskRepeat: 'no-repeat',
-    WebkitMaskSize: '512px 512px',
-    maskSize: '512px 512px',
-    WebkitMaskPosition: 'left top',
-    maskPosition: 'left top',
-  }
-})
 
 function toMarkedFilename(filename: string) {
   const dotIndex = filename.lastIndexOf('.')
@@ -786,7 +738,6 @@ watch(rawValue, (next) => {
   if (next !== false) loadPngList()
   if (next !== 'markednpz') {
     showMarked.value = false
-    markFilter.value = 'green'
   }
 })
 
@@ -824,7 +775,7 @@ onBeforeUnmount(() => {
 .image-frame{width:512px;height:512px;border-radius:12px;overflow:hidden;background:#0f172a;position:relative;display:flex;align-items:center;justify-content:center}
 .base-image{width:512px;height:512px;object-fit:contain;display:block}
 .mark-layer{position:absolute;inset:0;pointer-events:none}
-.mark-mask{width:512px;height:512px;display:block}
+.mark-image{width:512px;height:512px;object-fit:contain;display:block}
 .crop-window{position:relative;overflow:hidden;display:flex;align-items:flex-start;justify-content:flex-start}
 .crop-overlay{position:absolute;border:2px solid #38bdf8;box-shadow:0 0 0 9999px rgba(15,23,42,0.55);pointer-events:none}
 .player{display:flex;align-items:center;gap:10px;margin-left:-8px}
@@ -850,10 +801,6 @@ onBeforeUnmount(() => {
 .file-name{font-size:12px;color:#1f2937;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .file-status{font-size:12px;color:#475569;text-align:right}
 .file-progress :deep(.n-progress){margin:0}
-.mark-filter-label{font-size:12px;color:#64748b}
-.mark-filter-select{min-width:80px}
-.filter-rainbow{animation:mark-hue 2.6s linear infinite}
-@keyframes mark-hue{0%{filter:hue-rotate(0deg) saturate(200%) brightness(1.05)}100%{filter:hue-rotate(360deg) saturate(200%) brightness(1.05)}}
 @media (max-width: 900px){
   .upload-box,.image-frame{width:100%;height:auto;aspect-ratio:1/1}
   .slider{width:100%}

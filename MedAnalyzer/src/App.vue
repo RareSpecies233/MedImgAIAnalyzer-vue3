@@ -7,6 +7,9 @@
           <n-space align="center" size="medium">
             <router-link to="/">打开项目</router-link>
             <router-link to="/about">南北绿豆</router-link>
+            <n-button v-if="showDevButton" size="small" tertiary @click="openDevModal">
+              开发者模式
+            </n-button>
           </n-space>
         </nav>
       </header> 
@@ -19,7 +22,15 @@
 </template>
 
 <script setup lang="ts">
-// App shell — global layout + router outlet
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+
+const route = useRoute()
+const showDevButton = computed(() => route.name === 'project')
+
+function openDevModal() {
+  window.dispatchEvent(new CustomEvent('open-dev-modal'))
+}
 </script>
 
 <style scoped>
