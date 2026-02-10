@@ -263,6 +263,7 @@ type ViewerContext = {
   animationId: number | null
   resizeObserver: ResizeObserver
   syncingZoom: boolean
+  lastSpherical: THREE.Spherical
 }
 
 const props = defineProps<{ uuid: string }>()
@@ -307,9 +308,9 @@ function createViewerState(): ViewerState {
     zoom: 1,
     rotationX: 0,
     rotationY: 0,
-    autoRotate: true,
-    showGrid: true,
-    showAxes: true,
+    autoRotate: false,
+    showGrid: false,
+    showAxes: false,
     wireframe: false,
     background: 'light',
   }
@@ -537,6 +538,7 @@ async function ensureViewer(key: ViewerKey) {
     animationId: null,
     resizeObserver,
     syncingZoom: false,
+    lastSpherical: new THREE.Spherical(),
   }
 
   viewers[key] = context
@@ -614,6 +616,9 @@ function fitCameraToObject(viewer: ViewerContext, object: THREE.Object3D) {
   viewer.controls.maxDistance = viewer.baseDistance * 3
   viewer.controls.update()
   updateStateFromControls(viewer, viewerStates[viewerKeyFromViewer(viewer)])
+  viewer.lastSpherical = new THREE.Spherical().setFromVector3(
+    viewer.camera.position.clone().sub(viewer.controls.target),
+  )
 }
 
 function updateStateFromControls(viewer: ViewerContext, state: ViewerState) {
@@ -632,22 +637,30 @@ function handleControlsChange(key: ViewerKey) {
   const viewer = viewers[key]
   if (!viewer) return
   lastActiveKey.value = key
+  const offset = viewer.camera.position.clone().sub(viewer.controls.target)
+  const spherical = new THREE.Spherical().setFromVector3(offset)
+  const zoomChanged = Math.abs(spherical.radius - viewer.lastSpherical.radius) > 0.001
+  const rotateChanged =
+    Math.abs(spherical.phi - viewer.lastSpherical.phi) > 0.001 ||
+    Math.abs(spherical.theta - viewer.lastSpherical.theta) > 0.001
+  viewer.lastSpherical = spherical
   updateStateFromControls(viewer, viewerStates[key])
   if (!showDual.value || (!syncRotate.value && !syncZoom.value)) return
   if (syncLock.value) return
+  if ((!zoomChanged || !syncZoom.value) && (!rotateChanged || !syncRotate.value)) return
   syncLock.value = true
   const targetKey: ViewerKey = key === 'raw' ? 'processed' : 'raw'
-  syncCameraState(key, targetKey)
+  syncCameraState(key, targetKey, zoomChanged && syncZoom.value, rotateChanged && syncRotate.value)
   syncLock.value = false
 }
 
 function syncViews(sourceKey: ViewerKey) {
   const targetKey: ViewerKey = sourceKey === 'raw' ? 'processed' : 'raw'
   if (!showDual.value) return
-  syncCameraState(sourceKey, targetKey)
+  syncCameraState(sourceKey, targetKey, syncZoom.value, syncRotate.value)
 }
 
-function syncCameraState(sourceKey: ViewerKey, targetKey: ViewerKey) {
+function syncCameraState(sourceKey: ViewerKey, targetKey: ViewerKey, syncZoomValue: boolean, syncRotateValue: boolean) {
   const source = viewers[sourceKey]
   const target = viewers[targetKey]
   if (!source || !target) return
@@ -656,17 +669,20 @@ function syncCameraState(sourceKey: ViewerKey, targetKey: ViewerKey) {
   const sourceSpherical = new THREE.Spherical().setFromVector3(sourceOffset)
   const targetSpherical = new THREE.Spherical().setFromVector3(targetOffset)
   const nextSpherical = new THREE.Spherical(
-    syncZoom.value ? sourceSpherical.radius : targetSpherical.radius,
-    syncRotate.value ? sourceSpherical.phi : targetSpherical.phi,
-    syncRotate.value ? sourceSpherical.theta : targetSpherical.theta,
+    syncZoomValue ? sourceSpherical.radius : targetSpherical.radius,
+    syncRotateValue ? sourceSpherical.phi : targetSpherical.phi,
+    syncRotateValue ? sourceSpherical.theta : targetSpherical.theta,
   )
-  if (syncRotate.value) {
+  if (syncRotateValue) {
     target.controls.target.copy(source.controls.target)
   }
   const nextOffset = new THREE.Vector3().setFromSpherical(nextSpherical)
   target.camera.position.copy(target.controls.target.clone().add(nextOffset))
   target.controls.update()
   updateStateFromControls(target, viewerStates[targetKey])
+  target.lastSpherical = new THREE.Spherical().setFromVector3(
+    target.camera.position.clone().sub(target.controls.target),
+  )
 }
 
 function updateZoomFromState(key: ViewerKey) {
@@ -681,6 +697,9 @@ function updateZoomFromState(key: ViewerKey) {
   viewer.camera.position.copy(viewer.controls.target.clone().add(nextOffset))
   viewer.controls.update()
   viewer.syncingZoom = false
+  viewer.lastSpherical = new THREE.Spherical().setFromVector3(
+    viewer.camera.position.clone().sub(viewer.controls.target),
+  )
   if (syncZoom.value && showDual.value && !syncLock.value) {
     syncLock.value = true
     const otherKey: ViewerKey = key === 'raw' ? 'processed' : 'raw'
