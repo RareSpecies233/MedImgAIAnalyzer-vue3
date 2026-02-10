@@ -25,7 +25,7 @@
       <div class="analysis-display">
         <div v-if="showEmpty" class="analysis-empty">请先进行Ai分析</div>
         <template v-else>
-          <div v-if="showSemiHint" class="semi-hint">当前显示裁切过的Ai分析影像</div>
+          <div v-if="showSemiHint" class="semi-hint">当前使用裁切过的影像进行分析(依旧显示完整影像)</div>
           <div class="display-grid" :class="{ dual: showDual }">
             <div v-if="showDual" class="viewer-card">
               <div class="viewer-head">

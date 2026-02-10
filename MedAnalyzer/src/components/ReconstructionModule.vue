@@ -2,7 +2,7 @@
   <section class="module">
     <div class="module-head">
       <h2>三维重建</h2>
-      <n-tag size="small" type="success" :bordered="false">可用</n-tag>
+      <n-tag size="small" type="warning" :bordered="false">开发中</n-tag>
     </div>
     <div class="module-body">
       <div v-if="errorConfig" class="state error">加载失败：{{ errorConfig }}</div>
@@ -69,12 +69,6 @@
                 <n-button size="small" @click="resetView('raw')">重置视角</n-button>
                 <n-button size="small" @click="toggleAutoRotate('raw')">
                   {{ viewerStates.raw.autoRotate ? '停止自动旋转' : '自动旋转' }}
-                </n-button>
-                <n-button size="small" @click="toggleGrid('raw')">
-                  {{ viewerStates.raw.showGrid ? '隐藏网格' : '显示网格' }}
-                </n-button>
-                <n-button size="small" @click="toggleAxes('raw')">
-                  {{ viewerStates.raw.showAxes ? '隐藏坐标轴' : '显示坐标轴' }}
                 </n-button>
                 <n-button size="small" @click="toggleWireframe('raw')">
                   {{ viewerStates.raw.wireframe ? '隐藏线框' : '显示线框' }}
