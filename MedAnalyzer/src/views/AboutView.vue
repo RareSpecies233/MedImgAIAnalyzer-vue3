@@ -58,15 +58,41 @@
         </n-space>
       </div>
 
-      <div class="uploader">
-        <input ref="fileInputRef" type="file" multiple @change="handleFileSelect" />
-        <n-button size="small" type="primary" :loading="uploading" @click="uploadSelected" :disabled="selectedFiles.length === 0">
-          上传选中文档
-        </n-button>
-        <span class="muted">已选 {{ selectedFiles.length }} 个文件</span>
+      <div class="upload-card">
+        <div class="upload-head">
+          <div class="upload-title">上传文档</div>
+          <div class="upload-meta">已选 {{ selectedFiles.length }} 个文件 · 总大小 {{ formatSize(selectedTotalSize) }}</div>
+        </div>
+        <div class="upload-row">
+          <n-button size="small" type="primary" :loading="uploading" @click="triggerFilePicker" :disabled="uploading">
+            选择文件
+          </n-button>
+          <n-button size="small" tertiary :loading="uploading" @click="uploadSelected" :disabled="selectedFiles.length === 0 || uploading">
+            开始上传
+          </n-button>
+          <n-button size="small" tertiary :disabled="selectedFiles.length === 0 || uploading" @click="clearSelectedFiles">
+            清空待上传
+          </n-button>
+        </div>
+        <input ref="fileInputRef" type="file" class="hidden-input" multiple @change="handleFileSelect" />
+
+        <div v-if="selectedFiles.length > 0" class="selected-file-list">
+          <div v-for="file in selectedFiles" :key="`${file.name}-${file.size}-${file.lastModified}`" class="selected-file-item">
+            <div class="file-main">
+              <div class="file-name" :title="file.name">{{ file.name }}</div>
+              <div class="file-sub">{{ formatSize(file.size) }} · {{ file.type || '未知类型' }}</div>
+            </div>
+            <div class="file-time">{{ formatDate(file.lastModified) }}</div>
+          </div>
+        </div>
+        <div v-else class="upload-empty">尚未选择上传文件</div>
       </div>
 
       <div v-if="docsError" class="state error">{{ docsError }}</div>
+
+      <div class="docs-summary">
+        当前文档 {{ documents.length }} 个 · 总大小 {{ formatSize(documentsTotalSize) }}
+      </div>
 
       <div v-if="documents.length === 0" class="state">暂无文档</div>
       <div v-else class="doc-list">
@@ -88,7 +114,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import {
   deleteRagDocument,
   downloadRagDocuments,
@@ -112,6 +138,14 @@ const deletingDocName = ref('')
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const selectedFiles = ref<File[]>([])
 const documents = ref<RagDocument[]>([])
+
+const selectedTotalSize = computed(() =>
+  selectedFiles.value.reduce((sum, file) => sum + file.size, 0),
+)
+
+const documentsTotalSize = computed(() =>
+  documents.value.reduce((sum, doc) => sum + doc.size, 0),
+)
 
 const settings = reactive({
   base_url: '',
@@ -181,14 +215,22 @@ function handleFileSelect(event: Event) {
   selectedFiles.value = Array.from(target.files || [])
 }
 
+function triggerFilePicker() {
+  fileInputRef.value?.click()
+}
+
+function clearSelectedFiles() {
+  selectedFiles.value = []
+  if (fileInputRef.value) fileInputRef.value.value = ''
+}
+
 async function uploadSelected() {
   if (selectedFiles.value.length === 0) return
   uploading.value = true
   docsError.value = ''
   try {
     await uploadRagDocuments(selectedFiles.value)
-    selectedFiles.value = []
-    if (fileInputRef.value) fileInputRef.value.value = ''
+    clearSelectedFiles()
     await loadDocuments()
   } catch (err: any) {
     docsError.value = err?.message || String(err)
@@ -236,6 +278,12 @@ function formatSize(size: number) {
   return `${(size / 1024 / 1024).toFixed(1)} MB`
 }
 
+function formatDate(timestamp: number) {
+  const date = new Date(timestamp)
+  if (Number.isNaN(date.getTime())) return '未知时间'
+  return date.toLocaleString()
+}
+
 onMounted(async () => {
   await Promise.all([loadSettings(), loadDocuments()])
 })
@@ -254,7 +302,20 @@ onMounted(async () => {
 .field.full{grid-column:1 / -1}
 .state{padding:10px 12px;border-radius:8px;background:#f8fafc;color:#334155;margin-bottom:12px}
 .state.error{background:#fef2f2;color:#b91c1c}
-.uploader{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.upload-card{border:1px solid var(--color-border);border-radius:10px;padding:12px;background:#f8fafc;margin-bottom:12px}
+.upload-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.upload-title{font-size:13px;font-weight:600;color:#334155}
+.upload-meta{font-size:12px;color:#64748b}
+.upload-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}
+.hidden-input{display:none}
+.selected-file-list{margin-top:10px;display:flex;flex-direction:column;gap:8px;max-height:220px;overflow:auto}
+.selected-file-item{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--color-border);background:#fff;border-radius:8px;padding:8px 10px}
+.file-main{display:flex;flex-direction:column;gap:3px;min-width:0}
+.file-name{font-size:13px;color:#1f2937;word-break:break-word}
+.file-sub{font-size:12px;color:#64748b}
+.file-time{font-size:12px;color:#64748b;white-space:nowrap}
+.upload-empty{margin-top:10px;padding:10px;border-radius:8px;background:#fff;color:#64748b;font-size:12px;border:1px dashed var(--color-border)}
+.docs-summary{margin-bottom:8px;font-size:12px;color:#64748b}
 .muted{font-size:12px;color:#64748b}
 .doc-list{display:flex;flex-direction:column;gap:8px}
 .doc-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px;border:1px solid var(--color-border);border-radius:8px}
@@ -263,5 +324,7 @@ onMounted(async () => {
 .doc-size{font-size:12px;color:#64748b;white-space:nowrap}
 @media (max-width: 800px){
   .form-grid{grid-template-columns:1fr}
+  .selected-file-item{flex-direction:column;align-items:flex-start}
+  .file-time{white-space:normal}
 }
 </style>
