@@ -71,6 +71,47 @@
               </div>
             </div>
           </n-card>
+
+          <n-card size="small" class="panel panel-wide" title="LLM / RAG 命中（当前会话最新一轮）">
+            <div class="kv-list">
+              <div class="kv">
+                <div class="kv-label">时间</div>
+                <div class="mono">{{ formatTime(lastLlmDebug?.updatedAt) }}</div>
+              </div>
+              <div class="kv">
+                <div class="kv-label">问题</div>
+                <pre class="mono">{{ lastLlmDebug?.question || '—' }}</pre>
+              </div>
+              <div class="kv">
+                <div class="kv-label">命中文档</div>
+                <template v-if="(lastLlmDebug?.hitDocuments?.length || 0) > 0">
+                  <div class="chip-list">
+                    <n-tag
+                      v-for="name in lastLlmDebug?.hitDocuments || []"
+                      :key="name"
+                      size="small"
+                      type="success"
+                      :bordered="false"
+                    >
+                      {{ name }}
+                    </n-tag>
+                  </div>
+                </template>
+                <div v-else class="mono">未识别到文档名（可查看下方上下文）</div>
+              </div>
+              <div class="kv">
+                <div class="kv-label">命中片段数（chunks）</div>
+                <div class="mono">{{ lastLlmDebug?.chunks ?? '—' }}</div>
+              </div>
+              <div class="kv">
+                <div class="kv-label">命中上下文</div>
+                <div v-if="(lastLlmDebug?.contexts?.length || 0) > 0" class="contexts">
+                  <pre v-for="(ctx, idx) in lastLlmDebug?.contexts || []" :key="`${idx}-${ctx.slice(0, 20)}`" class="mono context-item">{{ ctx }}</pre>
+                </div>
+                <pre v-else class="mono">—</pre>
+              </div>
+            </div>
+          </n-card>
         </div>
         <div class="tail">【这是尾巴】</div>
       </div>
@@ -87,6 +128,15 @@ import AiAnalysisModule from '../components/AiAnalysisModule.vue'
 import ReconstructionModule from '../components/ReconstructionModule.vue'
 import AiConsultModule from '../components/AiConsultModule.vue'
 
+type LlmDebugPayload = {
+  question: string
+  answer: string
+  chunks: number
+  contexts: string[]
+  hitDocuments: string[]
+  updatedAt: string
+}
+
 const props = defineProps<{ uuid: string }>()
 const router = useRouter()
 const project = ref<Project | null>(null)
@@ -94,6 +144,7 @@ const projectConfig = ref<ProjectConfig | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
 const showDevModal = ref(false)
+const lastLlmDebug = ref<LlmDebugPayload | null>(null)
 
 const projectConfigFields = [
   { key: 'uuid', label: 'UUID' },
@@ -148,13 +199,20 @@ function handleOpenDevModal() {
   showDevModal.value = true
 }
 
+function handleLlmChatUpdated(event: Event) {
+  const customEvent = event as CustomEvent<LlmDebugPayload>
+  lastLlmDebug.value = customEvent.detail || null
+}
+
 onMounted(() => {
   load()
   window.addEventListener('open-dev-modal', handleOpenDevModal as EventListener)
+  window.addEventListener('llm-chat-updated', handleLlmChatUpdated as EventListener)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('open-dev-modal', handleOpenDevModal as EventListener)
+  window.removeEventListener('llm-chat-updated', handleLlmChatUpdated as EventListener)
 })
 </script>
 
@@ -170,12 +228,16 @@ onBeforeUnmount(() => {
 .state{padding:12px;border-radius:8px;background:#f8fafc;color:#334155}
 .state.error{color:#b91c1c;background:#fef2f2}
 .dev-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.panel-wide{grid-column:1 / -1}
 .panel :deep(.n-card__content){padding-top:6px}
 .kv-list{display:flex;flex-direction:column;gap:10px}
 .kv{display:flex;flex-direction:column;gap:6px}
 .kv-label{font-size:12px;color:#64748b;font-weight:600}
 .kv-value{font-size:13px;color:#1f2937}
 .mono{white-space:pre-wrap;background:#f8fafc;padding:10px;border-radius:6px;font-size:12px;line-height:1.5;margin:0}
+.chip-list{display:flex;gap:6px;flex-wrap:wrap}
+.contexts{display:flex;flex-direction:column;gap:8px}
+.context-item{max-height:140px;overflow:auto}
 .tail{margin-top:12px;color:#475569;font-size:13px}
 .modal-card{width:min(92vw,960px);border-radius:12px;box-shadow:0 20px 50px rgba(2,6,23,0.2)}
 .modal-title{display:flex;align-items:center;justify-content:space-between;gap:12px}
