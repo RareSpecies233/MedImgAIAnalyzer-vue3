@@ -89,6 +89,14 @@ export async function downloadRagDocuments(): Promise<Blob> {
   return await res.blob()
 }
 
+export async function downloadRagDocument(name: string): Promise<Blob> {
+  const res = await fetch(`/api/llm/rag/download/${encodeURIComponent(name)}`)
+  if (!res.ok) {
+    throw new Error(`下载文档失败：${await parseError(res)}`)
+  }
+  return await res.blob()
+}
+
 export async function deleteRagDocument(name: string) {
   const res = await fetch(`/api/llm/rag/documents/${encodeURIComponent(name)}`, {
     method: 'DELETE',

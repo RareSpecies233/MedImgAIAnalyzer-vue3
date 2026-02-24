@@ -101,12 +101,23 @@
             <div class="doc-name">{{ doc.name }}</div>
             <div class="doc-size">{{ formatSize(doc.size) }}</div>
           </div>
-          <n-popconfirm @positive-click="() => removeDoc(doc.name)">
-            <template #trigger>
-              <n-button size="small" tertiary :loading="deletingDocName === doc.name">删除</n-button>
-            </template>
-            确认删除该文档？
-          </n-popconfirm>
+          <n-space>
+            <n-button
+              size="small"
+              tertiary
+              :loading="downloadingDocName === doc.name"
+              :disabled="deletingDocName === doc.name"
+              @click="downloadOne(doc.name)"
+            >
+              下载
+            </n-button>
+            <n-popconfirm @positive-click="() => removeDoc(doc.name)">
+              <template #trigger>
+                <n-button size="small" tertiary :loading="deletingDocName === doc.name">删除</n-button>
+              </template>
+              确认删除该文档？
+            </n-popconfirm>
+          </n-space>
         </div>
       </div>
     </section>
@@ -117,6 +128,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import {
   deleteRagDocument,
+  downloadRagDocument,
   downloadRagDocuments,
   getLlmSettings,
   listRagDocuments,
@@ -134,6 +146,7 @@ const downloadingDocs = ref(false)
 const uploading = ref(false)
 const docsError = ref('')
 const deletingDocName = ref('')
+const downloadingDocName = ref('')
 
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const selectedFiles = ref<File[]>([])
@@ -269,6 +282,26 @@ async function removeDoc(name: string) {
     docsError.value = err?.message || String(err)
   } finally {
     deletingDocName.value = ''
+  }
+}
+
+async function downloadOne(name: string) {
+  downloadingDocName.value = name
+  docsError.value = ''
+  try {
+    const blob = await downloadRagDocument(name)
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = name
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  } catch (err: any) {
+    docsError.value = err?.message || String(err)
+  } finally {
+    downloadingDocName.value = ''
   }
 }
 
