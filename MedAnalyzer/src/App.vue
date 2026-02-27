@@ -6,10 +6,10 @@
         <nav class="nav-right">
           <n-space align="center" size="medium">
             <router-link to="/" custom v-slot="{ href }">
-              <a :href="href" @click.prevent="handleNavClick('/', href)">打开项目</a>
+              <a :href="href" @click.prevent="handleNavClick('/')">打开项目</a>
             </router-link>
             <router-link to="/about" custom v-slot="{ href }">
-              <a :href="href" @click.prevent="handleNavClick('/about', href)">南北绿豆</a>
+              <a :href="href" @click.prevent="handleNavClick('/about')">南北绿豆</a>
             </router-link>
             <n-button v-if="showDevButton" size="small" tertiary @click="openDevModal">
               开发者模式
@@ -42,8 +42,30 @@
       <template #footer>
         <n-space justify="end">
           <n-button tertiary @click="showLeaveConfirm = false">取消</n-button>
-          <n-button tertiary @click="openInNewTab">在新标签页中打开</n-button>
           <n-button type="primary" @click="confirmLeave">确定</n-button>
+        </n-space>
+      </template>
+    </n-card>
+  </n-modal>
+
+  <n-modal
+    v-if="showGlobalError"
+    :show="showGlobalError"
+    teleported
+    :mask-closable="true"
+    :close-on-esc="true"
+    @update:show="(v: boolean) => (showGlobalError = v)"
+  >
+    <n-card class="modal-card" :bordered="false" role="dialog" aria-labelledby="global-error-title">
+      <template #header>
+        <div class="modal-title">
+          <span id="global-error-title">发生错误</span>
+        </div>
+      </template>
+      <div class="modal-body">{{ globalErrorMessage }}</div>
+      <template #footer>
+        <n-space justify="end">
+          <n-button type="primary" @click="showGlobalError = false">关闭</n-button>
         </n-space>
       </template>
     </n-card>
@@ -51,7 +73,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
 
 const route = useRoute()
@@ -59,35 +81,69 @@ const router = useRouter()
 const showDevButton = computed(() => route.name === 'project')
 const showLeaveConfirm = ref(false)
 const pendingTo = ref<RouteLocationRaw | null>(null)
-const pendingHref = ref('')
+const showGlobalError = ref(false)
+const globalErrorMessage = ref('')
+
+function normalizeErrorMessage(value: unknown): string {
+  if (value instanceof Error) return value.message || String(value)
+  if (typeof value === 'string') return value
+  if (value === null || typeof value === 'undefined') return '发生未知错误'
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return String(value)
+  }
+}
+
+function openGlobalError(message: unknown) {
+  const nextMessage = normalizeErrorMessage(message)
+  if (!nextMessage) return
+  globalErrorMessage.value = nextMessage
+  showGlobalError.value = true
+}
+
+function handleWindowError(event: ErrorEvent) {
+  openGlobalError(event.error ?? event.message)
+}
+
+function handleUnhandledRejection(event: PromiseRejectionEvent) {
+  openGlobalError(event.reason)
+}
+
+function handleAppErrorEvent(event: Event) {
+  const customEvent = event as CustomEvent<{ message?: string }>
+  openGlobalError(customEvent.detail?.message || '应用运行出现错误')
+}
 
 function openDevModal() {
   window.dispatchEvent(new CustomEvent('open-dev-modal'))
 }
 
-function handleNavClick(to: RouteLocationRaw, href: string) {
+function handleNavClick(to: RouteLocationRaw) {
   if (route.name !== 'project') {
     router.push(to)
     return
   }
   pendingTo.value = to
-  pendingHref.value = href
   showLeaveConfirm.value = true
 }
 
 function confirmLeave() {
-  if (pendingTo.value) {
-    router.push(pendingTo.value)
-  }
+  if (pendingTo.value) router.push(pendingTo.value)
   showLeaveConfirm.value = false
 }
 
-function openInNewTab() {
-  if (pendingHref.value) {
-    window.open(pendingHref.value, '_blank')
-  }
-  showLeaveConfirm.value = false
-}
+onMounted(() => {
+  window.addEventListener('error', handleWindowError)
+  window.addEventListener('unhandledrejection', handleUnhandledRejection)
+  window.addEventListener('app-error', handleAppErrorEvent as EventListener)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('error', handleWindowError)
+  window.removeEventListener('unhandledrejection', handleUnhandledRejection)
+  window.removeEventListener('app-error', handleAppErrorEvent as EventListener)
+})
 </script>
 
 <style scoped>

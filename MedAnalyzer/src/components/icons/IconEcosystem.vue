@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import Layers from '@vicons/tabler/Layers'
+import LayersLinked from '@vicons/tabler/LayersLinked'
 import { Icon } from '@vicons/utils'
 
 const props = defineProps({
@@ -11,6 +11,6 @@ const props = defineProps({
 
 <template>
   <Icon :size="props.size" :color="props.color" :tag="props.tag">
-    <Layers />
+    <LayersLinked />
   </Icon>
 </template>

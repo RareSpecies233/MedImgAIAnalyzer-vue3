@@ -27,7 +27,6 @@
             <label class="label" for="project-name">项目名称</label>
             <n-input
               id="project-name"
-              ref="nameInput"
               v-model:value="name"
               placeholder="请输入项目名称"
               :disabled="submitting"
@@ -81,13 +80,11 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, watch, ref, toRef, computed } from 'vue'
+import { watch, ref, toRef, computed } from 'vue'
 import { createProject, type Project } from '../api/projects'
 const emit = defineEmits(['update:show', 'created', 'enter'])
 const props = defineProps({ show: { type: Boolean, default: false } })
 const show = toRef(props, 'show')
-const closeBtn = ref<HTMLElement | null>(null)
-const nameInput = ref<any>(null)
 const name = ref('')
 const note = ref('')
 const submitting = ref(false)
@@ -136,11 +133,9 @@ function chooseEnter() {
   close()
 }
 
-// Keep body marker in sync and focus the close button when opened.
+// Reset form state when modal closes.
 watch(show, (v) => {
-  if (v) {
-    nextTick(() => (created.value ? closeBtn.value?.focus() : nameInput.value?.focus()))
-  } else {
+  if (!v) {
     reset()
   }
 })

@@ -13,6 +13,12 @@ app.use(createPinia())
 app.use(router)
 app.use(naive) // register Naive UI globally
 
+app.config.errorHandler = (err) => {
+	const message = err instanceof Error ? err.message : String(err)
+	window.dispatchEvent(new CustomEvent('app-error', { detail: { message } }))
+	console.error(err)
+}
+
 // NOTE: xicons is added to dependencies — import individual icons where needed
 // Example (do this in the component that uses the icon):
 // import { IconName } from '@xicons/vue'

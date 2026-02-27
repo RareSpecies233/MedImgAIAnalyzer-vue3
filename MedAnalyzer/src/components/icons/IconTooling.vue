@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import Wrench from '@vicons/tabler/Wrench'
+import Tool from '@vicons/tabler/Tool'
 import { Icon } from '@vicons/utils'
 
 const props = defineProps({
@@ -11,6 +11,6 @@ const props = defineProps({
 
 <template>
   <Icon :size="props.size" :color="props.color" :tag="props.tag">
-    <Wrench />
+    <Tool />
   </Icon>
 </template>

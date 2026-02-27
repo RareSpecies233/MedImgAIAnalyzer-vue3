@@ -440,7 +440,7 @@ async function exportModel(key: ViewerKey) {
     exporter.parse(
       viewer.modelGroup,
       (output: ArrayBuffer | object) => resolve(output),
-      (error: Error) => reject(error),
+      (event: ErrorEvent) => reject(event.error instanceof Error ? event.error : new Error(event.message || '导出模型失败')),
       { binary: true },
     )
   })
@@ -570,7 +570,7 @@ async function loadModel(key: ViewerKey) {
       arrayBuffer,
       '',
       (result: GLTF) => resolve(result.scene),
-      (error: Error) => reject(error),
+      (event: ErrorEvent) => reject(event.error instanceof Error ? event.error : new Error(event.message || '解析模型失败')),
     )
   })
   if (viewer.model) {
