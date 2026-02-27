@@ -232,12 +232,12 @@ async function saveNote() {
 </template>
 
 <style scoped>
-.home-root{display:flex;flex-direction:column;gap:20px;height:100%;max-width:1100px;margin:0 auto;padding:8px 6px;min-height:0;width:100%}
+.home-root{display:flex;flex-direction:column;gap:20px;height:100%;max-width:1100px;margin:0 auto;padding:8px 6px;min-height:0;width:100%;overflow:hidden}
 .heading{display:flex;align-items:center;justify-content:space-between}
 .heading h1{margin:0;font-size:22px}
 .actions{display:flex;gap:12px}
 /* 居中卡片：固定 min-height（视觉更紧凑）并在非常高的屏幕上限制最大高度 */
-.card-wrap{display:flex;align-items:stretch;justify-content:center;flex:1;min-height:0;width:100%}
+.card-wrap{display:flex;align-items:stretch;justify-content:center;flex:1;min-height:0;width:100%;overflow:hidden}
 /* 保持外层卡片高度稳定，内部滚动以避免切换项目时外框抖动 */
 .selector-area{
   display:grid;

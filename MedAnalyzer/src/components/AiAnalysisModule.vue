@@ -187,7 +187,7 @@
           <div class="modal-tip">处理完成</div>
         </template>
         <template v-else>
-          <div class="modal-tip">处理完成(但可能有错误)</div>
+          <div class="modal-tip">处理失败（请检查后端模型）</div>
         </template>
       </div>
       <template #footer>
