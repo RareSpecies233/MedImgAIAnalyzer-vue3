@@ -256,6 +256,9 @@ type ViewerContext = {
   model: THREE.Object3D | null
   animationId: number | null
   resizeObserver: ResizeObserver
+  resizeFrameId: number | null
+  lastWidth: number
+  lastHeight: number
   syncingZoom: boolean
   lastSpherical: THREE.Spherical
 }
@@ -510,7 +513,15 @@ async function ensureViewer(key: ViewerKey) {
   const modelGroup = new THREE.Group()
   scene.add(modelGroup)
 
-  const resizeObserver = new ResizeObserver(() => resizeRenderer(key))
+  const resizeObserver = new ResizeObserver(() => {
+    const viewer = viewers[key]
+    if (!viewer) return
+    if (viewer.resizeFrameId !== null) return
+    viewer.resizeFrameId = window.requestAnimationFrame(() => {
+      viewer.resizeFrameId = null
+      resizeRenderer(key)
+    })
+  })
   resizeObserver.observe(canvas)
 
   const context: ViewerContext = {
@@ -526,6 +537,9 @@ async function ensureViewer(key: ViewerKey) {
     model: null,
     animationId: null,
     resizeObserver,
+    resizeFrameId: null,
+    lastWidth: 0,
+    lastHeight: 0,
     syncingZoom: false,
     lastSpherical: new THREE.Spherical(),
   }
@@ -554,6 +568,9 @@ function resizeRenderer(key: ViewerKey) {
   const canvas = viewer.renderer.domElement
   const width = Math.max(1, canvas.clientWidth)
   const height = Math.max(1, canvas.clientHeight)
+  if (viewer.lastWidth === width && viewer.lastHeight === height) return
+  viewer.lastWidth = width
+  viewer.lastHeight = height
   viewer.renderer.setSize(width, height, false)
   viewer.camera.aspect = width / height
   viewer.camera.updateProjectionMatrix()
@@ -787,6 +804,9 @@ function disposeViewer(key: ViewerKey) {
   if (!viewer) return
   if (viewer.animationId) {
     window.cancelAnimationFrame(viewer.animationId)
+  }
+  if (viewer.resizeFrameId !== null) {
+    window.cancelAnimationFrame(viewer.resizeFrameId)
   }
   viewer.resizeObserver.disconnect()
   viewer.controls.dispose()

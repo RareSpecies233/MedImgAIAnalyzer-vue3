@@ -98,8 +98,17 @@ function normalizeErrorMessage(value: unknown): string {
 function openGlobalError(message: unknown) {
   const nextMessage = normalizeErrorMessage(message)
   if (!nextMessage) return
+  if (shouldIgnoreGlobalError(nextMessage)) return
   globalErrorMessage.value = nextMessage
   showGlobalError.value = true
+}
+
+function shouldIgnoreGlobalError(message: string): boolean {
+  const normalized = message.toLowerCase()
+  return (
+    normalized.includes('resizeobserver loop completed with undelivered notifications') ||
+    normalized.includes('resizeobserver loop limit exceeded')
+  )
 }
 
 function handleWindowError(event: ErrorEvent) {
