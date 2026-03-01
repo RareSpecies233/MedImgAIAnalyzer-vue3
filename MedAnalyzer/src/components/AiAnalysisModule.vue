@@ -65,14 +65,23 @@
                 </template>
                 <template v-else>
                   <div class="image-canvas" :style="rawTransformStyle">
-                    <img class="base-image" :src="rawCurrentUrl" alt="raw" draggable="false" />
-                    <img
-                      v-if="showRawMarked && rawMarkedUrl"
-                      class="mark-image"
-                      :src="rawMarkedUrl"
-                      alt="raw marked"
-                      draggable="false"
-                    />
+                    <div class="crop-window" :style="analysisCropWindowStyle">
+                      <img
+                        class="base-image"
+                        :style="analysisCropImageStyle"
+                        :src="rawCurrentUrl"
+                        alt="raw"
+                        draggable="false"
+                      />
+                      <img
+                        v-if="showRawMarked && rawMarkedUrl"
+                        class="mark-image"
+                        :style="analysisCropImageStyle"
+                        :src="rawMarkedUrl"
+                        alt="raw marked"
+                        draggable="false"
+                      />
+                    </div>
                   </div>
                 </template>
               </div>
@@ -120,14 +129,23 @@
                 </template>
                 <template v-else>
                   <div class="image-canvas" :style="processedTransformStyle">
-                    <img class="base-image" :src="processedCurrentUrl" alt="processed" draggable="false" />
-                    <img
-                      v-if="showProcessedMarked && processedMarkedUrl"
-                      class="mark-image"
-                      :src="processedMarkedUrl"
-                      alt="processed marked"
-                      draggable="false"
-                    />
+                    <div class="crop-window" :style="analysisCropWindowStyle">
+                      <img
+                        class="base-image"
+                        :style="analysisCropImageStyle"
+                        :src="processedCurrentUrl"
+                        alt="processed"
+                        draggable="false"
+                      />
+                      <img
+                        v-if="showProcessedMarked && processedMarkedUrl"
+                        class="mark-image"
+                        :style="analysisCropImageStyle"
+                        :src="processedMarkedUrl"
+                        alt="processed marked"
+                        draggable="false"
+                      />
+                    </div>
                   </div>
                 </template>
               </div>
@@ -275,6 +293,7 @@ const showSemiHint = computed(() => projectConfig.value?.PD === 'semi')
 const showEmpty = computed(() => !projectConfig.value || projectConfig.value.PD === false)
 const canAnalyzeSemi = computed(() => projectConfig.value?.semi !== false)
 const hasAnalysis = computed(() => projectConfig.value?.PD !== false)
+const isSemiDisplayActive = computed(() => projectConfig.value?.PD === 'semi' && projectConfig.value?.semi !== false)
 
 const showRawMarked = ref(false)
 const showProcessedMarked = ref(false)
@@ -299,6 +318,53 @@ const processedSliderIndicator = computed(() => formatIndicator(processedList.va
 
 const rawTransformStyle = computed(() => buildTransformStyle(rawTransform))
 const processedTransformStyle = computed(() => buildTransformStyle(processedTransform))
+
+type CropValues = {
+  'semi-xL': number
+  'semi-xR': number
+  'semi-yL': number
+  'semi-yR': number
+}
+
+function getAnalysisCropValues(): CropValues {
+  const config = projectConfig.value
+  return {
+    'semi-xL': config?.['semi-xL'] ?? -1,
+    'semi-xR': config?.['semi-xR'] ?? -1,
+    'semi-yL': config?.['semi-yL'] ?? -1,
+    'semi-yR': config?.['semi-yR'] ?? -1,
+  }
+}
+
+function normalizeCrop(values: CropValues) {
+  const size = 512
+  const left = clampCropValue(values['semi-xL'], 0, size)
+  const top = clampCropValue(values['semi-yL'], 0, size)
+  const rightEdge = values['semi-xR'] === -1 ? size : clampCropValue(values['semi-xR'], 0, size)
+  const bottomEdge = values['semi-yR'] === -1 ? size : clampCropValue(values['semi-yR'], 0, size)
+  const width = Math.max(0, rightEdge - left)
+  const height = Math.max(0, bottomEdge - top)
+  return { left, top, width, height }
+}
+
+const analysisCropWindowStyle = computed(() => {
+  if (!isSemiDisplayActive.value) {
+    return { width: '100%', height: '100%' }
+  }
+  const { width, height } = normalizeCrop(getAnalysisCropValues())
+  return {
+    width: `${Math.max(1, width)}px`,
+    height: `${Math.max(1, height)}px`,
+  }
+})
+
+const analysisCropImageStyle = computed(() => {
+  if (!isSemiDisplayActive.value) return {}
+  const { left, top } = normalizeCrop(getAnalysisCropValues())
+  return {
+    transform: `translate(${-left}px, ${-top}px)`,
+  }
+})
 
 function formatIndicator(list: string[], index: number) {
   if (!list.length) return '0 / 0'
@@ -746,6 +812,11 @@ function clampValue(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max)
 }
 
+function clampCropValue(value: number, min: number, max: number) {
+  if (value === -1) return 0
+  return Math.min(Math.max(value, min), max)
+}
+
 watch(rawList, (list) => {
   if (list.length === 0) stopRawPlay()
   revokeCache(rawCache)
@@ -817,6 +888,7 @@ onBeforeUnmount(() => {
 .slider{width:100%}
 .image-frame{width:100%;aspect-ratio:1/1;border-radius:12px;overflow:hidden;background:#0f172a;position:relative;display:flex;align-items:center;justify-content:center;touch-action:none}
 .image-canvas{width:512px;height:512px;position:relative;display:flex;align-items:center;justify-content:center;transform-origin:center center}
+.crop-window{position:relative;overflow:hidden;display:flex;align-items:flex-start;justify-content:flex-start}
 .base-image,.mark-image{width:512px;height:512px;object-fit:contain;display:block}
 .mark-image{position:absolute;inset:0;pointer-events:none}
 .empty-frame{color:#94a3b8;font-size:14px}
