@@ -96,12 +96,6 @@
                 <n-button size="small" @click="toggleAutoRotate('processed')">
                   {{ viewerStates.processed.autoRotate ? '停止自动旋转' : '自动旋转' }}
                 </n-button>
-                <n-button size="small" @click="toggleGrid('processed')">
-                  {{ viewerStates.processed.showGrid ? '隐藏网格' : '显示网格' }}
-                </n-button>
-                <n-button size="small" @click="toggleAxes('processed')">
-                  {{ viewerStates.processed.showAxes ? '隐藏坐标轴' : '显示坐标轴' }}
-                </n-button>
                 <n-button size="small" @click="toggleWireframe('processed')">
                   {{ viewerStates.processed.wireframe ? '隐藏线框' : '显示线框' }}
                 </n-button>
