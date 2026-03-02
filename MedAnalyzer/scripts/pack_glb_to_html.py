@@ -52,6 +52,16 @@ HTML_TEMPLATE = """<!doctype html>
       gap: 16px;
       align-items: start;
     }}
+    .global-controls {{
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }}
+    .global-tip {{
+      font-size: 12px;
+      color: var(--muted);
+    }}
     .card {{
       border: 1px solid var(--border);
       border-radius: 12px;
@@ -155,6 +165,11 @@ HTML_TEMPLATE = """<!doctype html>
   <main class="page">
     <div class="title">GLB 模型浏览</div>
     <div class="subtitle">每行展示 2 个模型，标题为 GLB 文件名；支持旋转/平移/缩放、重置视角、自动旋转、线框、背景切换、导出模型。</div>
+    <div class="global-controls">
+      <button id="sync-rotate-btn">同步旋转</button>
+      <button id="sync-zoom-btn">同步缩放</button>
+      <span class="global-tip">开启后不会重置现有状态，仅在后续操作时同步</span>
+    </div>
     <div id="boot-error" class="error" style="display:none"></div>
     <section id="grid" class="grid"></section>
   </main>
@@ -167,6 +182,13 @@ HTML_TEMPLATE = """<!doctype html>
     const threeModules = JSON.parse(document.getElementById('three-modules').textContent || '{{}}');
     const grid = document.getElementById('grid');
     const bootError = document.getElementById('boot-error');
+    const syncRotateBtn = document.getElementById('sync-rotate-btn');
+    const syncZoomBtn = document.getElementById('sync-zoom-btn');
+
+    let syncRotateEnabled = false;
+    let syncZoomEnabled = false;
+    let syncLock = false;
+    const viewerApis = [];
 
     function showBootError(message) {{
       if (!bootError) return;
@@ -262,6 +284,50 @@ HTML_TEMPLATE = """<!doctype html>
       showBootError('未发现可展示的 GLB 模型数据。');
     }}
 
+    function updateSyncButtons() {{
+      if (syncRotateBtn) syncRotateBtn.textContent = syncRotateEnabled ? '关闭同步旋转' : '同步旋转';
+      if (syncZoomBtn) syncZoomBtn.textContent = syncZoomEnabled ? '关闭同步缩放' : '同步缩放';
+    }}
+
+    function syncFromSource(sourceApi, syncRotateValue, syncZoomValue) {{
+      if (syncLock) return;
+      if (!syncRotateValue && !syncZoomValue) return;
+      syncLock = true;
+      try {{
+        const sourceSpherical = sourceApi.getSpherical();
+        const sourceZoomFactor = sourceApi.getZoomFactor();
+        viewerApis.forEach((targetApi) => {{
+          if (targetApi === sourceApi) return;
+          const nextSpherical = targetApi.getSpherical();
+          if (syncRotateValue) {{
+            nextSpherical.phi = sourceSpherical.phi;
+            nextSpherical.theta = sourceSpherical.theta;
+          }}
+          if (syncZoomValue) {{
+            const nextRadius = targetApi.baseDistance / clamp(sourceZoomFactor, 0.4, 3);
+            nextSpherical.radius = clamp(nextRadius, targetApi.minDistance, targetApi.maxDistance);
+          }}
+          targetApi.applySpherical(nextSpherical);
+        }});
+      }} finally {{
+        syncLock = false;
+      }}
+    }}
+
+    if (syncRotateBtn) {{
+      syncRotateBtn.addEventListener('click', () => {{
+        syncRotateEnabled = !syncRotateEnabled;
+        updateSyncButtons();
+      }});
+    }}
+    if (syncZoomBtn) {{
+      syncZoomBtn.addEventListener('click', () => {{
+        syncZoomEnabled = !syncZoomEnabled;
+        updateSyncButtons();
+      }});
+    }}
+    updateSyncButtons();
+
     const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
 
     function formatZoom(v) {{ return `${{v.toFixed(2)}}x`; }}
@@ -353,6 +419,7 @@ HTML_TEMPLATE = """<!doctype html>
       let autoRotate = false;
       let background = 'light';
       let modelRoot = null;
+      let lastSpherical = new THREE.Spherical(4, Math.PI / 2, 0);
 
       function updateBackground() {{
         const color = background === 'dark' ? 0x0f172a : background === 'blue' ? 0x0b2545 : 0xf8fafc;
@@ -362,9 +429,29 @@ HTML_TEMPLATE = """<!doctype html>
       function updateOverlay() {{
         const offset = camera.position.clone().sub(controls.target);
         const sp = new THREE.Spherical().setFromVector3(offset);
+        lastSpherical = new THREE.Spherical(sp.radius, sp.phi, sp.theta);
         const zoom = clamp(baseDistance / sp.radius, 0.4, 3);
         zoomText.textContent = `缩放 ${{formatZoom(zoom)}}`;
         rotText.textContent = `旋转 ${{formatRotation(sp.phi, sp.theta)}}`;
+      }}
+
+      function getSpherical() {{
+        const offset = camera.position.clone().sub(controls.target);
+        return new THREE.Spherical().setFromVector3(offset);
+      }}
+
+      function applySpherical(nextSpherical) {{
+        const nextOffset = new THREE.Vector3().setFromSpherical(nextSpherical);
+        camera.position.copy(controls.target.clone().add(nextOffset));
+        controls.update();
+        updateOverlay();
+        const zoomNow = clamp(baseDistance / nextSpherical.radius, 0.4, 3);
+        zoomSlider.value = zoomNow.toFixed(2);
+      }}
+
+      function getZoomFactor() {{
+        const sp = getSpherical();
+        return clamp(baseDistance / sp.radius, 0.4, 3);
       }}
 
       function resize() {{
@@ -378,13 +465,9 @@ HTML_TEMPLATE = """<!doctype html>
       function setZoomBySlider() {{
         const nextZoom = clamp(parseFloat(zoomSlider.value), 0.4, 3);
         const distance = baseDistance / nextZoom;
-        const offset = camera.position.clone().sub(controls.target);
-        const sp = new THREE.Spherical().setFromVector3(offset);
+        const sp = getSpherical();
         sp.radius = distance;
-        const nextOffset = new THREE.Vector3().setFromSpherical(sp);
-        camera.position.copy(controls.target.clone().add(nextOffset));
-        controls.update();
-        updateOverlay();
+        applySpherical(sp);
       }}
 
       function fitCamera(obj) {{
@@ -414,6 +497,16 @@ HTML_TEMPLATE = """<!doctype html>
         zoomSlider.value = '1';
         updateOverlay();
       }}
+
+      const viewerApi = {{
+        baseDistance: 4,
+        minDistance: 0.1,
+        maxDistance: 2000,
+        getSpherical,
+        getZoomFactor,
+        applySpherical,
+      }};
+      viewerApis.push(viewerApi);
 
       function downloadRawGlb() {{
         const bytes = decodeBase64ToArrayBuffer(model.base64);
@@ -448,10 +541,17 @@ HTML_TEMPLATE = """<!doctype html>
       zoomSlider.addEventListener('input', setZoomBySlider);
 
       controls.addEventListener('change', () => {{
+        const prev = new THREE.Spherical(lastSpherical.radius, lastSpherical.phi, lastSpherical.theta);
         updateOverlay();
-        const offset = camera.position.clone().sub(controls.target);
-        const sp = new THREE.Spherical().setFromVector3(offset);
+        const sp = getSpherical();
         zoomSlider.value = clamp(baseDistance / sp.radius, 0.4, 3).toFixed(2);
+        const zoomChanged = Math.abs(sp.radius - prev.radius) > 0.001;
+        const rotateChanged =
+          Math.abs(sp.phi - prev.phi) > 0.001 ||
+          Math.abs(sp.theta - prev.theta) > 0.001;
+        if (!syncLock && ((syncRotateEnabled && rotateChanged) || (syncZoomEnabled && zoomChanged))) {{
+          syncFromSource(viewerApi, syncRotateEnabled && rotateChanged, syncZoomEnabled && zoomChanged);
+        }}
       }});
 
       const resizeObserver = new ResizeObserver(() => resize());
@@ -466,6 +566,9 @@ HTML_TEMPLATE = """<!doctype html>
           modelRoot = gltf.scene;
           modelGroup.add(modelRoot);
           fitCamera(modelRoot);
+          viewerApi.baseDistance = baseDistance;
+          viewerApi.minDistance = controls.minDistance;
+          viewerApi.maxDistance = controls.maxDistance;
         }}, (error) => {{
           console.error(error);
           errorBox.style.display = 'block';
@@ -490,6 +593,8 @@ HTML_TEMPLATE = """<!doctype html>
         resizeObserver.disconnect();
         controls.dispose();
         renderer.dispose();
+        const idx = viewerApis.indexOf(viewerApi);
+        if (idx >= 0) viewerApis.splice(idx, 1);
       }};
 
       return card;
