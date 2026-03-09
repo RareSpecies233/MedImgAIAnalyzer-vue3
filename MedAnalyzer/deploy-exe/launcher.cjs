@@ -50,7 +50,55 @@ function normalizeBackendUrl(rawUrl) {
   return parsed;
 }
 
-const backendUrl = normalizeBackendUrl(process.env.BACKEND_URL);
+function parsePositiveInteger(value) {
+  const number = Number(value);
+  return Number.isInteger(number) && number > 0 ? number : null;
+}
+
+function parseCliArgs(argv) {
+  const options = {
+    port: null,
+    apiPort: null,
+  };
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const current = argv[index];
+
+    if (current === '--port') {
+      options.port = parsePositiveInteger(argv[index + 1]);
+      index += 1;
+      continue;
+    }
+
+    if (current.startsWith('--port=')) {
+      options.port = parsePositiveInteger(current.slice('--port='.length));
+      continue;
+    }
+
+    if (current === '--apiport') {
+      options.apiPort = parsePositiveInteger(argv[index + 1]);
+      index += 1;
+      continue;
+    }
+
+    if (current.startsWith('--apiport=')) {
+      options.apiPort = parsePositiveInteger(current.slice('--apiport='.length));
+    }
+  }
+
+  return options;
+}
+
+function resolveBackendUrl(apiPort) {
+  const parsed = normalizeBackendUrl(process.env.BACKEND_URL);
+  if (apiPort) {
+    parsed.port = String(apiPort);
+  }
+  return parsed;
+}
+
+const cliOptions = parseCliArgs(process.argv.slice(2));
+const backendUrl = resolveBackendUrl(cliOptions.apiPort);
 
 function readFileSafe(filePath, fallback = '') {
   try {
@@ -108,7 +156,7 @@ function deployAssetsIfNeeded() {
 }
 
 function openBrowser(url) {
-  if ((process.env.OPEN_BROWSER || 'true').toLowerCase() === 'false') {
+  if ((process.env.OPEN_BROWSER || 'false').toLowerCase() === 'true') {
     return;
   }
 
@@ -232,13 +280,14 @@ async function main() {
   deployAssetsIfNeeded();
 
   const envPort = Number(process.env.PORT);
-  const startPort = Number.isInteger(envPort) && envPort > 0 ? envPort : DEFAULT_PORT;
+  const startPort = cliOptions.port || (Number.isInteger(envPort) && envPort > 0 ? envPort : DEFAULT_PORT);
 
   const { server, port } = await startServer(startPort);
   const url = `http://${HOST}:${port}`;
 
   console.log(`${APP_NAME} 已部署并启动: ${url}`);
   console.log(`后端代理目标: ${backendUrl.toString()}`);
+  console.log(`启动参数: --port=${startPort} --apiport=${backendUrl.port || (backendUrl.protocol === 'https:' ? '443' : '80')}`);
   console.log(`部署目录: ${deployRoot}`);
   console.log('按 Ctrl+C 可停止服务。');
 

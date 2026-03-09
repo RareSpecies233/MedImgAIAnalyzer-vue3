@@ -1,5 +1,5 @@
 <template>
-  <div class="project-view">
+  <div class="project-view" :class="{ 'project-view--split': isSplitMode }">
     <section class="page-header">
       <div class="header-left">
         <h1>项目视图</h1>
@@ -282,6 +282,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .project-view{width:100%;max-width:none;margin:0 auto;display:flex;flex-direction:column;gap:20px;padding:8px 6px;min-height:0}
+.project-view--split{padding-left:0}
 .page-header{display:flex;align-items:center;justify-content:space-between;gap:16px}
 .page-header h1{margin:0;font-size:22px}
 .subtitle{margin:4px 0 0;color:rgba(75,85,99,0.95);font-size:13px}

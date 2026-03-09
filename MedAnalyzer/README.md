@@ -71,6 +71,17 @@ npm run build:exe
 - `OPEN_BROWSER=false`：启动后不自动打开浏览器
 - `BACKEND_URL`：指定后端地址，默认 `http://127.0.0.1:18080`
 
+可选启动参数：
+
+- `--port=8080` 或 `--port 8080`：指定前端静态服务监听端口
+- `--apiport=18080` 或 `--apiport 18080`：指定内置 `/api/*` 代理转发到的后端端口
+
+示例：
+
+```sh
+./release/MedAnalyzerDeploy-macos-arm64 --port=8090 --apiport=19090
+```
+
 说明：
 
 - 前端所有后端请求统一走 `/api/*` 前缀。

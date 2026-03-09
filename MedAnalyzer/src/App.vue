@@ -18,7 +18,10 @@
         </nav>
       </header> 
 
-      <main class="page-body" :class="{ 'page-body--with-nav': showNav }">
+      <main
+        class="page-body"
+        :class="{ 'page-body--with-nav': showNav, 'page-body--project-split': isSplitProjectRoute }"
+      >
         <router-view />
       </main>
     </div>
@@ -75,12 +78,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
+import { projectViewMode } from './utils/projectViewPreference'
 
 const route = useRoute()
 const router = useRouter()
 const routePrefix = computed(() => String(route.meta.routePrefix || ''))
 const showNav = computed(() => !route.meta.hideNav)
 const isProjectRoute = computed(() => route.name === 'project' || route.name === 'client-project')
+const isSplitProjectRoute = computed(() => isProjectRoute.value && projectViewMode.value === 'split')
 const homePath = computed(() => (routePrefix.value ? routePrefix.value : '/'))
 const aboutPath = computed(() => `${routePrefix.value}/about`)
 const showDevButton = computed(() => isProjectRoute.value)
@@ -173,5 +178,6 @@ onBeforeUnmount(() => {
 /* make the page body full-bleed and let children control inner width */
 .page-body{flex:1;padding:24px;width:100%;min-height:0;display:flex;flex-direction:column;overflow:auto}
 .page-body--with-nav{margin-top:40px;height:calc(100vh - 40px)}
+.page-body--project-split{padding-left:0}
 .app-footer{height:36px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;border-top:1px solid #f3f4f6}
 </style>
