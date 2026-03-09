@@ -285,12 +285,11 @@ onBeforeUnmount(() => {
 .page-header{display:flex;align-items:center;justify-content:space-between;gap:16px}
 .page-header h1{margin:0;font-size:22px}
 .subtitle{margin:4px 0 0;color:rgba(75,85,99,0.95);font-size:13px}
-.project-shell{display:grid;grid-template-columns:88px minmax(0,1fr);gap:16px;align-items:flex-start}
-.module-sidebar{display:flex;flex-direction:column;gap:10px;position:sticky;top:0}
-.module-tab{width:88px;min-height:124px;border:1px solid rgba(148,163,184,0.28);background:linear-gradient(180deg,#f8fafc,#eef4ff);border-radius:18px;color:#475569;display:flex;align-items:center;justify-content:center;padding:12px 8px;cursor:pointer;transition:background .2s ease,border-color .2s ease,transform .2s ease,box-shadow .2s ease;box-shadow:0 10px 24px rgba(15,23,42,0.06)}
-.module-tab:hover{border-color:rgba(59,130,246,0.38);transform:translateY(-1px)}
-.module-tab--active{background:linear-gradient(180deg,#dbeafe,#bfdbfe);border-color:#60a5fa;color:#0f172a;box-shadow:0 14px 30px rgba(59,130,246,0.18)}
-.module-tab__text{writing-mode:vertical-rl;text-orientation:mixed;letter-spacing:2px;font-size:15px;font-weight:700}
+.project-shell{display:grid;grid-template-columns:44px minmax(0,1fr);gap:8px;align-items:flex-start}
+.module-sidebar{display:flex;flex-direction:column;gap:6px;position:sticky;top:0}
+.module-tab{width:44px;min-height:72px;border:1px solid #d4d4d8;background:#fff;border-radius:6px;color:#52525b;display:flex;align-items:center;justify-content:center;padding:6px 2px;cursor:pointer}
+.module-tab--active{background:#f1f5f9;border-color:#94a3b8;color:#0f172a}
+.module-tab__text{writing-mode:vertical-rl;text-orientation:mixed;letter-spacing:1px;font-size:11px;font-weight:600}
 .module-stage{min-width:0;display:flex;flex-direction:column}
 .module{background:#fff;border-radius:10px;box-shadow:0 10px 30px rgba(2,6,23,0.12)}
 .module-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--color-border)}
@@ -316,7 +315,7 @@ onBeforeUnmount(() => {
 @media (max-width: 900px){
   .project-shell{grid-template-columns:1fr;gap:12px}
   .module-sidebar{flex-direction:row;overflow:auto;padding-bottom:4px}
-  .module-tab{width:auto;min-width:96px;min-height:auto;padding:10px 12px;border-radius:12px}
+  .module-tab{width:auto;min-width:60px;min-height:auto;padding:6px 8px;border-radius:6px}
   .module-tab__text{writing-mode:horizontal-tb;text-orientation:mixed;letter-spacing:0}
   .dev-grid{grid-template-columns:1fr}
   .page-header{flex-direction:column;align-items:flex-start}
