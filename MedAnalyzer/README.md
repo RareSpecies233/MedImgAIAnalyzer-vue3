@@ -63,23 +63,24 @@ npm run build:exe
 
 1. 自动解包并部署前端静态资源到本机目录（`%LOCALAPPDATA%/MedAnalyzerDeploy`）
 2. 自动启动本地服务（默认 `http://127.0.0.1:8080`，端口占用会自动顺延）
-3. 自动打开浏览器
+3. 可按需自动打开浏览器
 
 可选环境变量：
 
 - `PORT`：指定启动端口
-- `OPEN_BROWSER=false`：启动后不自动打开浏览器
+- `OPEN_BROWSER=true`：启动后自动打开浏览器
 - `BACKEND_URL`：指定后端地址，默认 `http://127.0.0.1:18080`
 
 可选启动参数：
 
 - `--port=8080` 或 `--port 8080`：指定前端静态服务监听端口
 - `--apiport=18080` 或 `--apiport 18080`：指定内置 `/api/*` 代理转发到的后端端口
+- `--autopen`：启动后自动打开默认浏览器访问前端界面；不传时不自动打开
 
 示例：
 
 ```sh
-./release/MedAnalyzerDeploy-macos-arm64 --port=8090 --apiport=19090
+./release/MedAnalyzerDeploy-macos-arm64 --port=8090 --apiport=19090 --autopen
 ```
 
 说明：

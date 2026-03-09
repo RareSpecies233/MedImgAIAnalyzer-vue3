@@ -59,6 +59,7 @@ function parseCliArgs(argv) {
   const options = {
     port: null,
     apiPort: null,
+    autoOpen: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -83,6 +84,11 @@ function parseCliArgs(argv) {
 
     if (current.startsWith('--apiport=')) {
       options.apiPort = parsePositiveInteger(current.slice('--apiport='.length));
+      continue;
+    }
+
+    if (current === '--autopen') {
+      options.autoOpen = true;
     }
   }
 
@@ -156,7 +162,8 @@ function deployAssetsIfNeeded() {
 }
 
 function openBrowser(url) {
-  if ((process.env.OPEN_BROWSER || 'false').toLowerCase() === 'true') {
+  const envWantsOpen = String(process.env.OPEN_BROWSER || '').toLowerCase() === 'true';
+  if (!cliOptions.autoOpen && !envWantsOpen) {
     return;
   }
 
@@ -288,6 +295,7 @@ async function main() {
   console.log(`${APP_NAME} 已部署并启动: ${url}`);
   console.log(`后端代理目标: ${backendUrl.toString()}`);
   console.log(`启动参数: --port=${startPort} --apiport=${backendUrl.port || (backendUrl.protocol === 'https:' ? '443' : '80')}`);
+  console.log(`自动打开浏览器: ${cliOptions.autoOpen || String(process.env.OPEN_BROWSER || '').toLowerCase() === 'true' ? '开启' : '关闭'}`);
   console.log(`部署目录: ${deployRoot}`);
   console.log('按 Ctrl+C 可停止服务。');
 
