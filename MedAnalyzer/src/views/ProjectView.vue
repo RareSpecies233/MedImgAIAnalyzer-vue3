@@ -143,7 +143,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onBeforeUnmount, onMounted } from 'vue'
+import { computed, ref, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getProject, getProjectJson, type Project, type ProjectConfig } from '../api/projects'
 import PreprocessModule from '../components/PreprocessModule.vue'
@@ -232,6 +232,14 @@ async function load() {
   }
 }
 
+watch(
+  () => project.value?.name,
+  (name) => {
+    document.title = name || props.uuid
+  },
+  { immediate: true },
+)
+
 function formatTime(value?: string) {
   if (!value) return '—'
   const date = new Date(value)
@@ -284,10 +292,11 @@ onBeforeUnmount(() => {
 .project-view{width:100%;max-width:none;margin:0 auto;display:flex;flex-direction:column;gap:20px;padding:8px 6px;min-height:0}
 .project-view--split{padding-left:0}
 .page-header{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.header-left{padding-left:15px}
 .page-header h1{margin:0;font-size:22px}
 .subtitle{margin:4px 0 0;color:rgba(75,85,99,0.95);font-size:13px}
-.project-shell{display:grid;grid-template-columns:44px minmax(0,1fr);gap:8px;align-items:flex-start}
-.module-sidebar{display:flex;flex-direction:column;gap:6px;position:sticky;top:0}
+.project-shell{display:grid;grid-template-columns:48px minmax(0,1fr);gap:8px;align-items:flex-start}
+.module-sidebar{display:flex;flex-direction:column;gap:6px;position:sticky;top:0;padding-left:4px}
 .module-tab{width:44px;min-height:72px;border:1px solid #d4d4d8;background:#fff;border-radius:6px;color:#52525b;display:flex;align-items:center;justify-content:center;padding:6px 2px;cursor:pointer}
 .module-tab--active{background:#f1f5f9;border-color:#94a3b8;color:#0f172a}
 .module-tab__text{writing-mode:vertical-rl;text-orientation:mixed;letter-spacing:1px;font-size:11px;font-weight:600}
@@ -315,10 +324,11 @@ onBeforeUnmount(() => {
 :deep(.n-modal-mask){backdrop-filter:blur(6px);background:rgba(15,23,42,0.35)}
 @media (max-width: 900px){
   .project-shell{grid-template-columns:1fr;gap:12px}
-  .module-sidebar{flex-direction:row;overflow:auto;padding-bottom:4px}
+  .module-sidebar{flex-direction:row;overflow:auto;padding-bottom:4px;padding-left:0}
   .module-tab{width:auto;min-width:60px;min-height:auto;padding:6px 8px;border-radius:6px}
   .module-tab__text{writing-mode:horizontal-tb;text-orientation:mixed;letter-spacing:0}
   .dev-grid{grid-template-columns:1fr}
   .page-header{flex-direction:column;align-items:flex-start}
+  .header-left{padding-left:0}
 }
 </style>

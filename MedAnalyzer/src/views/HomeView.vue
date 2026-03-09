@@ -66,6 +66,10 @@ async function confirmDelete() {
 
 onMounted(load)
 
+onMounted(() => {
+  document.title = '打开项目'
+})
+
 function select(p: Project) {
   selected.value = p
 }

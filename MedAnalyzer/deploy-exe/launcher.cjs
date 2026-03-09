@@ -60,6 +60,7 @@ function parseCliArgs(argv) {
     port: null,
     apiPort: null,
     autoOpen: false,
+    help: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -89,10 +90,37 @@ function parseCliArgs(argv) {
 
     if (current === '--autopen') {
       options.autoOpen = true;
+      continue;
+    }
+
+    if (current === '--help' || current === '-h') {
+      options.help = true;
     }
   }
 
   return options;
+}
+
+function printHelp() {
+  const lines = [
+    `${APP_NAME} 启动帮助`,
+    '',
+    '用法：',
+    `  ${path.basename(process.argv[1] || 'MedAnalyzerDeploy')} [--port <port>] [--apiport <port>] [--autopen] [--help]`,
+    '',
+    '参数：',
+    '  --port <port>        指定前端静态服务监听端口，默认 8080',
+    '  --apiport <port>     指定 /api 代理转发到的后端端口，默认 18080',
+    '  --autopen            启动后自动打开默认浏览器访问程序界面',
+    '  --help, -h           显示帮助信息并退出',
+    '',
+    '环境变量：',
+    '  PORT                 与 --port 类似，优先级低于命令行参数',
+    '  BACKEND_URL          指定后端完整地址，优先保留协议与主机',
+    '  OPEN_BROWSER=true    与 --autopen 类似，优先级低于命令行参数',
+  ];
+
+  console.log(lines.join('\n'));
 }
 
 function resolveBackendUrl(apiPort) {
@@ -284,6 +312,11 @@ function startServer(port, retries = MAX_PORT_TRY) {
 }
 
 async function main() {
+  if (cliOptions.help) {
+    printHelp();
+    return;
+  }
+
   deployAssetsIfNeeded();
 
   const envPort = Number(process.env.PORT);
