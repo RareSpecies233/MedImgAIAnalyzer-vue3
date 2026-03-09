@@ -40,3 +40,6 @@ __screenshots__/
 *.exe
 MedAnalyzer/scripts/packed_glb_viewer.html
 __pycache__
+
+
+MedAnalyzer/release
