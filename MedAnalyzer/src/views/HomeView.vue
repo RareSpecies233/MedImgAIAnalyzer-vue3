@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { listProjects, deleteProject, updateProjectNote, type Project, ServerOfflineError } from '../api/projects'
 import NewProjectModal from '../components/NewProjectModal.vue'
 
+const route = useRoute()
 const router = useRouter()
 const projects = ref<Project[]>([])
 const loading = ref(false)
@@ -16,6 +17,9 @@ const isEditingNote = ref(false)
 const savingNote = ref(false)
 const noteDraft = ref('')
 const serverOffline = ref(false)
+const projectRouteName = computed(() =>
+  route.meta.routePrefix === '/client' ? 'client-project' : 'project',
+)
 
 async function load() {
   loading.value = true
@@ -80,7 +84,7 @@ watch(selected, (next) => {
 
 function openProject(p: Project) {
   // 跳转并传递 uuid
-  router.push({ name: 'project', params: { uuid: p.uuid } })
+  router.push({ name: projectRouteName.value, params: { uuid: p.uuid } })
 }
 
 function handleCreated(project: Project) {

@@ -8,12 +8,14 @@ const router = createRouter({
       path: '/',
       name: 'home',
       component: HomeView,
+      meta: { routePrefix: '', hideNav: false },
     },
     {
       path: '/project/:uuid',
       name: 'project',
       component: () => import('../views/ProjectView.vue'),
       props: true,
+      meta: { routePrefix: '', hideNav: false },
     },
     {
       path: '/about',
@@ -22,6 +24,26 @@ const router = createRouter({
       // this generates a separate chunk (About.[hash].js) for this route
       // which is lazy-loaded when the route is visited.
       component: () => import('../views/AboutView.vue'),
+      meta: { routePrefix: '', hideNav: false },
+    },
+    {
+      path: '/client',
+      name: 'client-home',
+      component: HomeView,
+      meta: { routePrefix: '/client', hideNav: true },
+    },
+    {
+      path: '/client/project/:uuid',
+      name: 'client-project',
+      component: () => import('../views/ProjectView.vue'),
+      props: true,
+      meta: { routePrefix: '/client', hideNav: true },
+    },
+    {
+      path: '/client/about',
+      name: 'client-about',
+      component: () => import('../views/AboutView.vue'),
+      meta: { routePrefix: '/client', hideNav: true },
     },
   ],
 })

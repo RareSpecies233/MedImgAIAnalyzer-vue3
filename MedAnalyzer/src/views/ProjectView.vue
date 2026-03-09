@@ -120,8 +120,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onBeforeUnmount, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref, onBeforeUnmount, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { getProject, getProjectJson, type Project, type ProjectConfig } from '../api/projects'
 import PreprocessModule from '../components/PreprocessModule.vue'
 import AiAnalysisModule from '../components/AiAnalysisModule.vue'
@@ -138,6 +138,7 @@ type LlmDebugPayload = {
 }
 
 const props = defineProps<{ uuid: string }>()
+const route = useRoute()
 const router = useRouter()
 const project = ref<Project | null>(null)
 const projectConfig = ref<ProjectConfig | null>(null)
@@ -145,6 +146,9 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const showDevModal = ref(false)
 const lastLlmDebug = ref<LlmDebugPayload | null>(null)
+const homeRouteName = computed(() =>
+  route.meta.routePrefix === '/client' ? 'client-home' : 'home',
+)
 
 const projectConfigFields = [
   { key: 'uuid', label: 'UUID' },
@@ -192,7 +196,7 @@ function formatConfigValue(key: string) {
 }
 
 function goHome() {
-  router.push({ name: 'home' })
+  router.push({ name: homeRouteName.value })
 }
 
 function handleOpenDevModal() {

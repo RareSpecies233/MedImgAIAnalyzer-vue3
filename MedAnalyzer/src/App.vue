@@ -1,15 +1,15 @@
 <template>
   <div id="app">
     <div class="container">
-      <header class="nav">
+      <header v-if="showNav" class="nav">
         <div class="nav-left">哈基米</div>
         <nav class="nav-right">
           <n-space align="center" size="medium">
-            <router-link to="/" custom v-slot="{ href }">
-              <a :href="href" @click.prevent="handleNavClick('/')">打开项目</a>
+            <router-link :to="homePath" custom v-slot="{ href }">
+              <a :href="href" @click.prevent="handleNavClick(homePath)">打开项目</a>
             </router-link>
-            <router-link to="/about" custom v-slot="{ href }">
-              <a :href="href" @click.prevent="handleNavClick('/about')">南北绿豆</a>
+            <router-link :to="aboutPath" custom v-slot="{ href }">
+              <a :href="href" @click.prevent="handleNavClick(aboutPath)">南北绿豆</a>
             </router-link>
             <n-button v-if="showDevButton" size="small" tertiary @click="openDevModal">
               开发者模式
@@ -18,7 +18,7 @@
         </nav>
       </header> 
 
-      <main class="page-body">
+      <main class="page-body" :class="{ 'page-body--with-nav': showNav }">
         <router-view />
       </main>
     </div>
@@ -78,7 +78,12 @@ import { useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
 
 const route = useRoute()
 const router = useRouter()
-const showDevButton = computed(() => route.name === 'project')
+const routePrefix = computed(() => String(route.meta.routePrefix || ''))
+const showNav = computed(() => !route.meta.hideNav)
+const isProjectRoute = computed(() => route.name === 'project' || route.name === 'client-project')
+const homePath = computed(() => (routePrefix.value ? routePrefix.value : '/'))
+const aboutPath = computed(() => `${routePrefix.value}/about`)
+const showDevButton = computed(() => isProjectRoute.value)
 const showLeaveConfirm = ref(false)
 const pendingTo = ref<RouteLocationRaw | null>(null)
 const showGlobalError = ref(false)
@@ -129,7 +134,7 @@ function openDevModal() {
 }
 
 function handleNavClick(to: RouteLocationRaw) {
-  if (route.name !== 'project') {
+  if (!isProjectRoute.value) {
     router.push(to)
     return
   }
@@ -166,6 +171,7 @@ onBeforeUnmount(() => {
 .modal-title{display:flex;align-items:center;justify-content:space-between}
 .modal-body{font-size:14px;color:#334155}
 /* make the page body full-bleed and let children control inner width */
-.page-body{flex:1;margin-top:40px;height:calc(100vh - 40px);padding:24px;width:100%;min-height:0;display:flex;flex-direction:column;overflow:auto}
+.page-body{flex:1;padding:24px;width:100%;min-height:0;display:flex;flex-direction:column;overflow:auto}
+.page-body--with-nav{margin-top:40px;height:calc(100vh - 40px)}
 .app-footer{height:36px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;border-top:1px solid #f3f4f6}
 </style>
