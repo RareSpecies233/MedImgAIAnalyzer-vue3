@@ -121,6 +121,22 @@
         </div>
       </div>
     </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>项目视图布局</h2>
+      </div>
+      <div class="view-mode-row">
+        <div class="view-mode-copy">
+          <div class="view-mode-title">模块分开展示</div>
+          <div class="view-mode-desc">开启后，项目视图默认显示左侧竖向模块导航，每次只展示一个模块；关闭后恢复当前整页顺序展示。</div>
+        </div>
+        <n-switch :value="projectViewSplitEnabled" @update:value="handleProjectViewModeChange">
+          <template #checked>分开</template>
+          <template #unchecked>合并</template>
+        </n-switch>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -136,6 +152,7 @@ import {
   uploadRagDocuments,
   type RagDocument,
 } from '../api/llm'
+import { projectViewMode, setProjectViewMode } from '../utils/projectViewPreference'
 
 const loadingSettings = ref(false)
 const savingSettings = ref(false)
@@ -159,6 +176,7 @@ const selectedTotalSize = computed(() =>
 const documentsTotalSize = computed(() =>
   documents.value.reduce((sum, doc) => sum + doc.size, 0),
 )
+const projectViewSplitEnabled = computed(() => projectViewMode.value === 'split')
 
 const settings = reactive({
   base_url: '',
@@ -317,6 +335,10 @@ function formatDate(timestamp: number) {
   return date.toLocaleString()
 }
 
+function handleProjectViewModeChange(value: boolean) {
+  setProjectViewMode(value ? 'split' : 'combined')
+}
+
 onMounted(async () => {
   await Promise.all([loadSettings(), loadDocuments()])
 })
@@ -335,6 +357,10 @@ onMounted(async () => {
 .field.full{grid-column:1 / -1}
 .state{padding:10px 12px;border-radius:8px;background:#f8fafc;color:#334155;margin-bottom:12px}
 .state.error{background:#fef2f2;color:#b91c1c}
+.view-mode-row{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.view-mode-copy{display:flex;flex-direction:column;gap:4px}
+.view-mode-title{font-size:14px;font-weight:600;color:#0f172a}
+.view-mode-desc{font-size:13px;color:#64748b;line-height:1.5;max-width:720px}
 .upload-card{border:1px solid var(--color-border);border-radius:10px;padding:12px;background:#f8fafc;margin-bottom:12px}
 .upload-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .upload-title{font-size:13px;font-weight:600;color:#334155}
@@ -357,6 +383,7 @@ onMounted(async () => {
 .doc-size{font-size:12px;color:#64748b;white-space:nowrap}
 @media (max-width: 800px){
   .form-grid{grid-template-columns:1fr}
+  .view-mode-row{flex-direction:column;align-items:flex-start}
   .selected-file-item{flex-direction:column;align-items:flex-start}
   .file-time{white-space:normal}
 }

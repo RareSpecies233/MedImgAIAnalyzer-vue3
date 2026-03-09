@@ -10,10 +10,33 @@
       </n-space>
     </section>
 
-    <PreprocessModule :uuid="props.uuid" />
-    <AiAnalysisModule :uuid="props.uuid" />
-    <ReconstructionModule :uuid="props.uuid" />
-    <AiConsultModule />
+    <section v-if="isSplitMode" class="project-shell">
+      <aside class="module-sidebar" aria-label="项目模块导航">
+        <button
+          v-for="item in moduleItems"
+          :key="item.key"
+          type="button"
+          class="module-tab"
+          :class="{ 'module-tab--active': activeModuleKey === item.key }"
+          @click="selectModule(item.key)"
+        >
+          <span class="module-tab__text">{{ item.label }}</span>
+        </button>
+      </aside>
+
+      <div class="module-stage">
+        <KeepAlive>
+          <component :is="activeModule.component" v-bind="activeModuleProps" />
+        </KeepAlive>
+      </div>
+    </section>
+
+    <template v-else>
+      <PreprocessModule :uuid="props.uuid" />
+      <AiAnalysisModule :uuid="props.uuid" />
+      <ReconstructionModule :uuid="props.uuid" />
+      <AiConsultModule />
+    </template>
   </div>
 
   <n-modal
@@ -127,6 +150,7 @@ import PreprocessModule from '../components/PreprocessModule.vue'
 import AiAnalysisModule from '../components/AiAnalysisModule.vue'
 import ReconstructionModule from '../components/ReconstructionModule.vue'
 import AiConsultModule from '../components/AiConsultModule.vue'
+import { projectViewMode } from '../utils/projectViewPreference'
 
 type LlmDebugPayload = {
   question: string
@@ -136,6 +160,22 @@ type LlmDebugPayload = {
   hitDocuments: string[]
   updatedAt: string
 }
+
+type ModuleKey = 'preprocess' | 'analysis' | 'reconstruction' | 'consult'
+
+type ModuleItem = {
+  key: ModuleKey
+  label: string
+  component: typeof PreprocessModule | typeof AiAnalysisModule | typeof ReconstructionModule | typeof AiConsultModule
+}
+
+const DEFAULT_MODULE_KEY: ModuleKey = 'preprocess'
+const moduleItems: ModuleItem[] = [
+  { key: 'preprocess', label: '预处理', component: PreprocessModule },
+  { key: 'analysis', label: 'Ai分析', component: AiAnalysisModule },
+  { key: 'reconstruction', label: '三维重建', component: ReconstructionModule },
+  { key: 'consult', label: 'Ai问答', component: AiConsultModule },
+]
 
 const props = defineProps<{ uuid: string }>()
 const route = useRoute()
@@ -148,6 +188,17 @@ const showDevModal = ref(false)
 const lastLlmDebug = ref<LlmDebugPayload | null>(null)
 const homeRouteName = computed(() =>
   route.meta.routePrefix === '/client' ? 'client-home' : 'home',
+)
+const isSplitMode = computed(() => projectViewMode.value === 'split')
+const activeModuleKey = computed<ModuleKey>(() => {
+  const queryValue = Array.isArray(route.query.module) ? route.query.module[0] : route.query.module
+  return isModuleKey(queryValue) ? queryValue : DEFAULT_MODULE_KEY
+})
+const activeModule = computed<ModuleItem>(() =>
+  moduleItems.find((item) => item.key === activeModuleKey.value) ?? moduleItems[0]!,
+)
+const activeModuleProps = computed<Record<string, unknown>>(() =>
+  activeModule.value.key === 'consult' ? {} : { uuid: props.uuid },
 )
 
 const projectConfigFields = [
@@ -199,6 +250,15 @@ function goHome() {
   router.push({ name: homeRouteName.value })
 }
 
+function isModuleKey(value: unknown): value is ModuleKey {
+  return value === 'preprocess' || value === 'analysis' || value === 'reconstruction' || value === 'consult'
+}
+
+function selectModule(moduleKey: ModuleKey) {
+  if (moduleKey === activeModuleKey.value) return
+  router.replace({ query: { ...route.query, module: moduleKey } })
+}
+
 function handleOpenDevModal() {
   showDevModal.value = true
 }
@@ -225,6 +285,13 @@ onBeforeUnmount(() => {
 .page-header{display:flex;align-items:center;justify-content:space-between;gap:16px}
 .page-header h1{margin:0;font-size:22px}
 .subtitle{margin:4px 0 0;color:rgba(75,85,99,0.95);font-size:13px}
+.project-shell{display:grid;grid-template-columns:88px minmax(0,1fr);gap:16px;align-items:flex-start}
+.module-sidebar{display:flex;flex-direction:column;gap:10px;position:sticky;top:0}
+.module-tab{width:88px;min-height:124px;border:1px solid rgba(148,163,184,0.28);background:linear-gradient(180deg,#f8fafc,#eef4ff);border-radius:18px;color:#475569;display:flex;align-items:center;justify-content:center;padding:12px 8px;cursor:pointer;transition:background .2s ease,border-color .2s ease,transform .2s ease,box-shadow .2s ease;box-shadow:0 10px 24px rgba(15,23,42,0.06)}
+.module-tab:hover{border-color:rgba(59,130,246,0.38);transform:translateY(-1px)}
+.module-tab--active{background:linear-gradient(180deg,#dbeafe,#bfdbfe);border-color:#60a5fa;color:#0f172a;box-shadow:0 14px 30px rgba(59,130,246,0.18)}
+.module-tab__text{writing-mode:vertical-rl;text-orientation:mixed;letter-spacing:2px;font-size:15px;font-weight:700}
+.module-stage{min-width:0;display:flex;flex-direction:column}
 .module{background:#fff;border-radius:10px;box-shadow:0 10px 30px rgba(2,6,23,0.12)}
 .module-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--color-border)}
 .module-head h2{margin:0;font-size:16px}
@@ -247,6 +314,10 @@ onBeforeUnmount(() => {
 .modal-title{display:flex;align-items:center;justify-content:space-between;gap:12px}
 :deep(.n-modal-mask){backdrop-filter:blur(6px);background:rgba(15,23,42,0.35)}
 @media (max-width: 900px){
+  .project-shell{grid-template-columns:1fr;gap:12px}
+  .module-sidebar{flex-direction:row;overflow:auto;padding-bottom:4px}
+  .module-tab{width:auto;min-width:96px;min-height:auto;padding:10px 12px;border-radius:12px}
+  .module-tab__text{writing-mode:horizontal-tb;text-orientation:mixed;letter-spacing:0}
   .dev-grid{grid-template-columns:1fr}
   .page-header{flex-direction:column;align-items:flex-start}
 }
