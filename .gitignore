@@ -43,3 +43,5 @@ __pycache__
 
 
 MedAnalyzer/release
+MedAnalyzer/deploy-exe/payload/version.txt
+MedAnalyzer/deploy-exe/payload/version.txt
