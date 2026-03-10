@@ -2,7 +2,6 @@
   <section class="module">
     <div class="module-head">
       <h2>预处理</h2>
-      <n-tag size="small" type="warning" :bordered="false">开发中</n-tag>
     </div>
       <div class="module-body">
         <div v-if="errorConfig" class="error">配置加载失败：{{ errorConfig }}</div>

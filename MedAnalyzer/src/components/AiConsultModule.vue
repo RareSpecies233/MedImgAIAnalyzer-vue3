@@ -2,7 +2,6 @@
   <section class="module">
     <div class="module-head">
       <h2>Ai问诊</h2>
-      <n-tag size="small" type="success" :bordered="false">RAG 对话</n-tag>
     </div>
     <div class="module-body">
       <div class="chat-board" ref="chatBoardRef">
