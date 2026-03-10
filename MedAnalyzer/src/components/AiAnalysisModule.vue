@@ -157,15 +157,17 @@
         <n-space size="small" wrap>
           <n-button size="small" @click="resetTransforms">恢复默认影像显示模式</n-button>
           <n-button size="small" @click="rotateClockwise">旋转（顺时针90度）</n-button>
-          <n-button size="small" @click="toggleSyncZoom">
-            {{ syncZoom ? '关闭同步缩放' : '启用同步缩放' }}
-          </n-button>
-          <n-button size="small" @click="toggleSyncPlay">
-            {{ syncPlay ? '关闭同步播放' : '启用同步播放' }}
-          </n-button>
-          <n-button size="small" @click="toggleSyncPan">
-            {{ syncPan ? '关闭同步平移' : '启用同步平移' }}
-          </n-button>
+            <template v-if="showDual">
+              <n-button size="small" @click="toggleSyncZoom">
+                {{ syncZoom ? '关闭同步缩放' : '启用同步缩放' }}
+              </n-button>
+              <n-button size="small" @click="toggleSyncPlay">
+                {{ syncPlay ? '关闭同步播放' : '启用同步播放' }}
+              </n-button>
+              <n-button size="small" @click="toggleSyncPan">
+                {{ syncPan ? '关闭同步平移' : '启用同步平移' }}
+              </n-button>
+            </template>
         </n-space>
       </div>
     </div>
