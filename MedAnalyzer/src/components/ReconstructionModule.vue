@@ -106,7 +106,7 @@
                 <n-slider
                   v-model:value="viewerStates.processed.zoom"
                   :min="0.4"
-                  :max="3"
+                  :max="2.5"
                   :step="0.05"
                   :show-tooltip="false"
                 />

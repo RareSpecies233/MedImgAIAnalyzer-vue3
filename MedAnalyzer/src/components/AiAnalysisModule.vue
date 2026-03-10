@@ -884,7 +884,7 @@ onBeforeUnmount(() => {
 .viewer-card{display:flex;flex-direction:column;gap:10px;max-width: 512px;}
 .viewer-head{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;color:#475569;font-weight:600}
 .viewer-controls{display:flex;align-items:center;gap:10px}
-.slider-label{min-width:48px;font-size:12px;color:#64748b;text-align:right}
+.slider-label{min-width:64px;font-size:12px;color:#64748b;text-align:right}
 .slider{width:100%}
 .image-frame{width:100%;aspect-ratio:1/1;border-radius:12px;overflow:hidden;background:#0f172a;position:relative;display:flex;align-items:center;justify-content:center;touch-action:none}
 .image-canvas{width:512px;height:512px;position:relative;display:flex;align-items:center;justify-content:center;transform-origin:center center}
