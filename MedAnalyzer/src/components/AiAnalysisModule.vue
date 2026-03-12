@@ -240,7 +240,7 @@
       </template>
       <div class="modal-body">
         <n-space vertical :size="10">
-          <n-button size="small" type="primary" @click="downloadProcessedPngVariant('image')">
+          <n-button size="small"  @click="downloadProcessedPngVariant('image')">
             下载影像PNG文件
           </n-button>
           <n-button size="small" :disabled="!canDownloadProcessedMarkedPng" @click="downloadProcessedPngVariant('marked')">
@@ -651,7 +651,7 @@ function openProcessedPngDownloadModal() {
 async function downloadProcessedPngVariant(type: 'image' | 'marked' | 'fused') {
   const url =
     type === 'image'
-      ? `/api/project/${props.uuid}/download/processed/png`
+      ? `/api/project/${props.uuid}/download/png`
       : type === 'marked'
         ? `/api/project/${props.uuid}/download/processed/markedpng`
         : `/api/project/${props.uuid}/download/processed/fused/png`

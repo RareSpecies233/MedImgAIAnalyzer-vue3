@@ -208,7 +208,7 @@
       </template>
       <div class="modal-body">
         <n-space vertical :size="10">
-          <n-button size="small" type="primary" @click="downloadPngVariant('image')">
+          <n-button size="small"  @click="downloadPngVariant('image')">
             下载影像PNG文件
           </n-button>
           <n-button size="small" :disabled="!canDownloadMarkedPng" @click="downloadPngVariant('marked')">
