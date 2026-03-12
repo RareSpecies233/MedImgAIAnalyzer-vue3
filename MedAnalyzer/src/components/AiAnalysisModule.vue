@@ -14,7 +14,7 @@
         <div v-if="hasAnalysis" class="analysis-downloads">
           <n-space size="small" wrap>
             <n-button size="small" @click="downloadProcessed('npz')">下载处理过的NPZ序列</n-button>
-            <n-button size="small" @click="downloadProcessed('png')">下载处理过的PNG序列</n-button>
+            <n-button size="small" @click="openProcessedPngDownloadModal">下载处理过的PNG序列</n-button>
             <n-button size="small" @click="downloadProcessed('nii')">下载处理过的NII单文件</n-button>
             <n-button size="small" @click="downloadProcessed('dcm')">下载处理过的DCM序列</n-button>
           </n-space>
@@ -225,6 +225,42 @@
   </n-modal>
 
   <n-modal
+    v-if="showProcessedPngDownloadModal"
+    :show="showProcessedPngDownloadModal"
+    teleported
+    :mask-closable="true"
+    :close-on-esc="true"
+    @update:show="(value: boolean) => (showProcessedPngDownloadModal = value)"
+  >
+    <n-card class="modal-card" :bordered="false" role="dialog" aria-labelledby="processed-png-download-title">
+      <template #header>
+        <div class="modal-title">
+          <span id="processed-png-download-title">选择 PNG 下载内容</span>
+        </div>
+      </template>
+      <div class="modal-body">
+        <n-space vertical :size="10">
+          <n-button size="small" type="primary" @click="downloadProcessedPngVariant('image')">
+            下载影像PNG文件
+          </n-button>
+          <n-button size="small" :disabled="!canDownloadProcessedMarkedPng" @click="downloadProcessedPngVariant('marked')">
+            下载标注PNG
+          </n-button>
+          <n-button size="small" :disabled="!canDownloadProcessedMarkedPng" @click="downloadProcessedPngVariant('fused')">
+            下载带标注的影像PNG
+          </n-button>
+        </n-space>
+        <div v-if="!canDownloadProcessedMarkedPng" class="download-hint">当前项目无标注数据，仅可下载影像 PNG。</div>
+      </div>
+      <template #footer>
+        <n-space justify="end">
+          <n-button size="small" tertiary @click="showProcessedPngDownloadModal = false">关闭</n-button>
+        </n-space>
+      </template>
+    </n-card>
+  </n-modal>
+
+  <n-modal
     v-if="showDownloadModal"
     :show="showDownloadModal"
     teleported
@@ -270,6 +306,7 @@ const analysisTimer = ref<number | null>(null)
 const showDownloadModal = ref(false)
 const downloadMessage = ref('')
 const downloadClosable = ref(true)
+const showProcessedPngDownloadModal = ref(false)
 
 const syncZoom = ref(false)
 const syncPlay = ref(false)
@@ -295,6 +332,7 @@ const showEmpty = computed(() => !projectConfig.value || projectConfig.value.PD 
 const canAnalyzeSemi = computed(() => projectConfig.value?.semi !== false)
 const hasAnalysis = computed(() => projectConfig.value?.PD !== false)
 const isSemiDisplayActive = computed(() => projectConfig.value?.PD === 'semi' && projectConfig.value?.semi !== false)
+const canDownloadProcessedMarkedPng = computed(() => showDual.value)
 
 const showRawMarked = ref(false)
 const showProcessedMarked = ref(false)
@@ -606,7 +644,36 @@ function handleDownloadModalUpdate(value: boolean) {
   if (downloadClosable.value) showDownloadModal.value = value
 }
 
-async function downloadProcessed(type: 'png' | 'npz' | 'nii' | 'dcm') {
+function openProcessedPngDownloadModal() {
+  showProcessedPngDownloadModal.value = true
+}
+
+async function downloadProcessedPngVariant(type: 'image' | 'marked' | 'fused') {
+  const url =
+    type === 'image'
+      ? `/api/project/${props.uuid}/download/processed/png`
+      : type === 'marked'
+        ? `/api/project/${props.uuid}/download/processed/markedpng`
+        : `/api/project/${props.uuid}/download/processed/fused/png`
+  if (type !== 'image' && !canDownloadProcessedMarkedPng.value) {
+    return
+  }
+  showProcessedPngDownloadModal.value = false
+  downloadMessage.value = '正在准备下载文件'
+  downloadClosable.value = false
+  showDownloadModal.value = true
+  try {
+    await triggerDownload(url)
+    downloadMessage.value = '处理完成，已开始下载'
+    downloadClosable.value = true
+  } catch (err) {
+    console.error(err)
+    downloadMessage.value = '下载失败，请稍后重试'
+    downloadClosable.value = true
+  }
+}
+
+async function downloadProcessed(type: 'npz' | 'nii' | 'dcm') {
   downloadMessage.value = '正在准备下载文件'
   downloadClosable.value = false
   showDownloadModal.value = true
@@ -898,6 +965,7 @@ onBeforeUnmount(() => {
 .modal-title{display:flex;align-items:center;justify-content:space-between}
 .modal-body{display:flex;flex-direction:column;gap:12px}
 .modal-tip{font-size:14px;color:#334155}
+.download-hint{font-size:12px;color:#64748b}
 :deep(.n-modal-mask){backdrop-filter:blur(6px);background:rgba(15,23,42,0.35)}
 @media (max-width: 900px){
   .display-grid.dual{grid-template-columns:1fr}

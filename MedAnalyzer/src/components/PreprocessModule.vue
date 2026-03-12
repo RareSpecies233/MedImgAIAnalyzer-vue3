@@ -69,7 +69,7 @@
 
           <template v-else-if="!isCropping">
             <n-space vertical :size="10">
-              <n-button size="small" @click="downloadImmediate('png')">转换为png</n-button>
+              <n-button size="small" @click="openPngDownloadModal">下载PNG</n-button>
               <n-button size="small" @click="downloadImmediate('npz')">转换为npz</n-button>
               <n-button size="small" @click="downloadProcessed('nii')">转换为nii</n-button>
               <n-button size="small" @click="downloadProcessed('dcm')">转换为dcm</n-button>
@@ -193,6 +193,42 @@
   </n-modal>
 
   <n-modal
+    v-if="showPngDownloadModal"
+    :show="showPngDownloadModal"
+    teleported
+    :mask-closable="true"
+    :close-on-esc="true"
+    @update:show="(value: boolean) => (showPngDownloadModal = value)"
+  >
+    <n-card class="modal-card" :bordered="false" role="dialog" aria-labelledby="png-download-title">
+      <template #header>
+        <div class="modal-title">
+          <span id="png-download-title">选择 PNG 下载内容</span>
+        </div>
+      </template>
+      <div class="modal-body">
+        <n-space vertical :size="10">
+          <n-button size="small" type="primary" @click="downloadPngVariant('image')">
+            下载影像PNG文件
+          </n-button>
+          <n-button size="small" :disabled="!canDownloadMarkedPng" @click="downloadPngVariant('marked')">
+            下载标注PNG
+          </n-button>
+          <n-button size="small" :disabled="!canDownloadMarkedPng" @click="downloadPngVariant('fused')">
+            下载带标注的影像PNG
+          </n-button>
+        </n-space>
+        <div v-if="!canDownloadMarkedPng" class="download-hint">当前项目无标注数据，仅可下载影像 PNG。</div>
+      </div>
+      <template #footer>
+        <n-space justify="end">
+          <n-button size="small" tertiary @click="showPngDownloadModal = false">关闭</n-button>
+        </n-space>
+      </template>
+    </n-card>
+  </n-modal>
+
+  <n-modal
     v-if="showDownloadModal"
     :show="showDownloadModal"
     teleported
@@ -259,6 +295,7 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const showDownloadModal = ref(false)
 const downloadMessage = ref('')
 const downloadClosable = ref(true)
+const showPngDownloadModal = ref(false)
 const isCropping = ref(false)
 const savingCrop = ref(false)
 const showMarked = ref(false)
@@ -285,6 +322,7 @@ const cropFields: Array<{ key: keyof CropValues; label: string }> = [
 
 const rawValue = computed(() => projectConfig.value?.raw ?? false)
 const canToggleMark = computed(() => rawValue.value === 'markednpz')
+const canDownloadMarkedPng = computed(() => rawValue.value === 'markednpz')
 const showCropHint = computed(() =>
   !isCropping.value && projectConfig.value ? projectConfig.value.semi === true : false,
 )
@@ -704,6 +742,35 @@ function handleDownloadModalUpdate(value: boolean) {
   if (downloadClosable.value) showDownloadModal.value = value
 }
 
+function openPngDownloadModal() {
+  showPngDownloadModal.value = true
+}
+
+async function downloadPngVariant(type: 'image' | 'marked' | 'fused') {
+  const url =
+    type === 'image'
+      ? `/api/project/${props.uuid}/download/png`
+      : type === 'marked'
+        ? `/api/project/${props.uuid}/download/markedpng`
+        : `/api/project/${props.uuid}/download/fused/png`
+  if (type !== 'image' && !canDownloadMarkedPng.value) {
+    return
+  }
+  showPngDownloadModal.value = false
+  downloadMessage.value = '正在准备下载文件'
+  downloadClosable.value = false
+  showDownloadModal.value = true
+  try {
+    await triggerDownload(url)
+    downloadMessage.value = '处理完成，已开始下载'
+    downloadClosable.value = true
+  } catch (err) {
+    console.error(err)
+    downloadMessage.value = '下载失败，请稍后重试'
+    downloadClosable.value = true
+  }
+}
+
 async function downloadImmediate(type: 'png' | 'npz') {
   downloadMessage.value = '转换完成，已开始下载'
   downloadClosable.value = true
@@ -827,6 +894,7 @@ onBeforeUnmount(() => {
 .file-name{font-size:12px;color:#1f2937;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .file-status{font-size:12px;color:#475569;text-align:right}
 .file-progress :deep(.n-progress){margin:0}
+.download-hint{font-size:12px;color:#64748b}
 @media (max-width: 900px){
   .upload-box,.image-frame{width:100%;height:auto;aspect-ratio:1/1}
   .slider{width:100%}
