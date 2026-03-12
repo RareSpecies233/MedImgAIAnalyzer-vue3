@@ -73,6 +73,7 @@
               <n-button size="small" @click="downloadImmediate('npz')">转换为npz</n-button>
               <n-button size="small" @click="downloadProcessed('nii')">转换为nii</n-button>
               <n-button size="small" @click="downloadProcessed('dcm')">转换为dcm</n-button>
+              <n-button size="small" :disabled="pngList.length === 0" @click="openEnhanceModal">数据增强</n-button>
               <n-divider />
               <n-button size="small" @click="rotateClockwise">旋转（顺时针90度）</n-button>
               <n-button size="small" @click="enterCrop">裁切图像</n-button>
@@ -193,6 +194,138 @@
   </n-modal>
 
   <n-modal
+    v-if="showEnhanceModal"
+    :show="showEnhanceModal"
+    teleported
+    :mask-closable="enhancePhase !== 'processing'"
+    :close-on-esc="enhancePhase !== 'processing'"
+    @update:show="handleEnhanceModalUpdate"
+  >
+    <n-card class="enhance-modal-card" :bordered="false" role="dialog" aria-labelledby="enhance-title">
+      <template #header>
+        <div class="modal-title">
+          <span id="enhance-title">数据增强模块</span>
+        </div>
+      </template>
+      <div class="enhance-layout">
+        <div class="enhance-preview-panel">
+          <div class="enhance-note">前端显示仅供参考，最终以后端处理结果为准</div>
+          <div class="enhance-preview-frame">
+            <template v-if="!currentImageUrl">
+              <div class="upload-box">暂无 PNG 序列</div>
+            </template>
+            <template v-else>
+              <div class="enhance-preview-window">
+                <div class="enhance-preview-fit" :style="enhancePreviewFitStyle">
+                  <div class="enhance-preview-crop" :style="enhancePreviewCropStyle">
+                    <img
+                      class="enhance-preview-image"
+                      :style="enhancePreviewImageStyle"
+                      :src="currentImageUrl"
+                      alt="增强预览"
+                      draggable="false"
+                    />
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <div class="enhance-control-panel">
+          <template v-if="enhancePhase === 'config' || enhancePhase === 'error'">
+            <div v-if="enhancePhase === 'error' && enhanceError" class="error">增强失败：{{ enhanceError }}</div>
+
+            <div class="enhance-row">
+              <div class="enhance-label">缩放</div>
+              <n-slider v-model:value="enhanceForm.scale" :min="0.25" :max="4" :step="0.05" class="enhance-slider" />
+              <n-input-number v-model:value="enhanceForm.scale" :min="0.25" :max="4" :step="0.05" size="small" />
+            </div>
+
+            <div class="enhance-row">
+              <div class="enhance-label">旋转</div>
+              <n-slider v-model:value="enhanceForm.rotate" :min="-180" :max="180" :step="1" class="enhance-slider" />
+              <n-input-number v-model:value="enhanceForm.rotate" :min="-180" :max="180" :step="1" size="small" />
+            </div>
+
+            <div class="enhance-row enhance-row--four">
+              <div class="enhance-label">裁切</div>
+              <div class="enhance-crop-grid">
+                <div class="enhance-crop-item">
+                  <span>X</span>
+                  <n-input-number v-model:value="enhanceForm.cropX" :min="0" :max="511" size="small" />
+                </div>
+                <div class="enhance-crop-item">
+                  <span>Y</span>
+                  <n-input-number v-model:value="enhanceForm.cropY" :min="0" :max="511" size="small" />
+                </div>
+                <div class="enhance-crop-item">
+                  <span>宽</span>
+                  <n-input-number v-model:value="enhanceForm.cropW" :min="1" :max="512" size="small" />
+                </div>
+                <div class="enhance-crop-item">
+                  <span>高</span>
+                  <n-input-number v-model:value="enhanceForm.cropH" :min="1" :max="512" size="small" />
+                </div>
+              </div>
+            </div>
+
+            <div class="enhance-row">
+              <div class="enhance-label">对比度调整</div>
+              <n-slider v-model:value="enhanceForm.contrast" :min="0.2" :max="3" :step="0.05" class="enhance-slider" />
+              <n-input-number v-model:value="enhanceForm.contrast" :min="0.2" :max="3" :step="0.05" size="small" />
+            </div>
+
+            <div class="enhance-row">
+              <div class="enhance-label">伽马调整</div>
+              <n-slider v-model:value="enhanceForm.gamma" :min="0.2" :max="3" :step="0.05" class="enhance-slider" />
+              <n-input-number v-model:value="enhanceForm.gamma" :min="0.2" :max="3" :step="0.05" size="small" />
+            </div>
+
+            <div class="enhance-switch-row">
+              <span>是否保持原分辨率</span>
+              <n-switch v-model:value="enhanceForm.preserveResolution" />
+            </div>
+
+            <n-space justify="end">
+              <n-button size="small" tertiary @click="showEnhanceModal = false">关闭</n-button>
+              <n-button size="small" type="primary" @click="applyEnhancement">应用增强</n-button>
+            </n-space>
+          </template>
+
+          <template v-else-if="enhancePhase === 'processing'">
+            <div class="enhance-status">
+              <div class="enhance-status-title">正在处理中</div>
+              <div class="enhance-status-desc">正在向后端提交数据增强请求，请稍候…</div>
+            </div>
+          </template>
+
+          <template v-else>
+            <div class="enhance-status">
+              <div class="enhance-status-title">处理完成</div>
+              <div class="enhance-status-desc">本次已处理 {{ enhanceProcessedCount ?? 0 }} 个文件。</div>
+            </div>
+            <div class="enhance-downloads">
+              <n-space vertical :size="10">
+                <n-button size="small" @click="downloadEnhancementResult('npz')">下载NPZ</n-button>
+                <n-button size="small" @click="downloadEnhancementResult('dcm')">下载DCM</n-button>
+                <n-button size="small" @click="downloadEnhancementResult('nii')">下载NII</n-button>
+                <n-button size="small" @click="downloadEnhancementResult('png')">下载PNG</n-button>
+                <n-button size="small" :disabled="!canDownloadMarkedPng" @click="downloadEnhancementResult('markedpng')">下载标注层PNG</n-button>
+                <n-button size="small" :disabled="!canDownloadMarkedPng" @click="downloadEnhancementResult('fused')">下载带有标注的PNG</n-button>
+              </n-space>
+            </div>
+            <n-space justify="end">
+              <n-button size="small" tertiary @click="resetEnhancePhase">返回调整</n-button>
+              <n-button size="small" type="primary" @click="showEnhanceModal = false">完成</n-button>
+            </n-space>
+          </template>
+        </div>
+      </div>
+    </n-card>
+  </n-modal>
+
+  <n-modal
     v-if="showPngDownloadModal"
     :show="showPngDownloadModal"
     teleported
@@ -274,6 +407,9 @@ type CropValues = {
   'semi-yR': number
 }
 
+type EnhancePhase = 'config' | 'processing' | 'done' | 'error'
+type EnhanceDownloadType = 'npz' | 'dcm' | 'nii' | 'png' | 'markedpng' | 'fused'
+
 const props = defineProps<{ uuid: string }>()
 
 const projectConfig = ref<ProjectConfig | null>(null)
@@ -296,6 +432,7 @@ const showDownloadModal = ref(false)
 const downloadMessage = ref('')
 const downloadClosable = ref(true)
 const showPngDownloadModal = ref(false)
+const showEnhanceModal = ref(false)
 const isCropping = ref(false)
 const savingCrop = ref(false)
 const showMarked = ref(false)
@@ -305,6 +442,21 @@ const currentMarkedUrl = ref('')
 const pngCache = new Map<string, string>()
 const markedCache = new Map<string, string>()
 const imageRotation = ref(90)
+const enhancePhase = ref<EnhancePhase>('config')
+const enhanceError = ref('')
+const enhanceProcessedCount = ref<number | null>(null)
+
+const enhanceForm = reactive({
+  scale: 1,
+  rotate: 0,
+  cropX: 0,
+  cropY: 0,
+  cropW: 512,
+  cropH: 512,
+  contrast: 1,
+  gamma: 1,
+  preserveResolution: false,
+})
 
 const cropDraft = reactive<CropValues>({
   'semi-xL': -1,
@@ -350,6 +502,45 @@ const showCropOverlay = computed(() => isCropping.value)
 const imageTransformStyle = computed(() => ({
   transform: `rotate(${imageRotation.value}deg)`,
 }))
+
+const enhanceCropBounds = computed(() => {
+  const cropX = clampPlainValue(enhanceForm.cropX, 0, 511)
+  const cropY = clampPlainValue(enhanceForm.cropY, 0, 511)
+  const maxW = Math.max(1, 512 - cropX)
+  const maxH = Math.max(1, 512 - cropY)
+  const cropW = clampPlainValue(enhanceForm.cropW, 1, maxW)
+  const cropH = clampPlainValue(enhanceForm.cropH, 1, maxH)
+  return { cropX, cropY, cropW, cropH }
+})
+
+const enhancePreviewFitStyle = computed(() => {
+  const { cropW, cropH } = enhanceCropBounds.value
+  const scale = Math.min(512 / cropW, 512 / cropH)
+  return {
+    transform: `scale(${scale})`,
+  }
+})
+
+const enhancePreviewCropStyle = computed(() => {
+  const { cropW, cropH } = enhanceCropBounds.value
+  return {
+    width: `${cropW}px`,
+    height: `${cropH}px`,
+  }
+})
+
+const enhancePreviewImageStyle = computed(() => {
+  const { cropX, cropY } = enhanceCropBounds.value
+  const gamma = clampPlainValue(enhanceForm.gamma, 0.2, 3)
+  const contrast = clampPlainValue(enhanceForm.contrast, 0.2, 3)
+  const scale = clampPlainValue(enhanceForm.scale, 0.25, 4)
+  const rotate = clampPlainValue(enhanceForm.rotate, -180, 180)
+  return {
+    transform: `translate(${-cropX}px, ${-cropY}px) scale(${scale}) rotate(${rotate}deg)`,
+    transformOrigin: 'top left',
+    filter: `contrast(${contrast}) brightness(${1 / gamma})`,
+  }
+})
 
 function getActiveCropValues(): CropValues {
   const config = projectConfig.value
@@ -412,6 +603,10 @@ const cropImageStyle = computed(() => {
 
 function clampValue(value: number, min: number, max: number) {
   if (value === -1) return 0
+  return Math.min(Math.max(value, min), max)
+}
+
+function clampPlainValue(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max)
 }
 
@@ -742,6 +937,107 @@ function handleDownloadModalUpdate(value: boolean) {
   if (downloadClosable.value) showDownloadModal.value = value
 }
 
+function openEnhanceModal() {
+  resetEnhanceForm()
+  resetEnhancePhase()
+  showEnhanceModal.value = true
+}
+
+function handleEnhanceModalUpdate(value: boolean) {
+  if (enhancePhase.value === 'processing' && !value) return
+  showEnhanceModal.value = value
+  if (!value) {
+    resetEnhanceForm()
+    resetEnhancePhase()
+  }
+}
+
+function resetEnhanceForm() {
+  enhanceForm.scale = 1
+  enhanceForm.rotate = 0
+  enhanceForm.cropX = 0
+  enhanceForm.cropY = 0
+  enhanceForm.cropW = 512
+  enhanceForm.cropH = 512
+  enhanceForm.contrast = 1
+  enhanceForm.gamma = 1
+  enhanceForm.preserveResolution = false
+}
+
+function resetEnhancePhase() {
+  enhancePhase.value = 'config'
+  enhanceError.value = ''
+  enhanceProcessedCount.value = null
+}
+
+async function applyEnhancement() {
+  enhancePhase.value = 'processing'
+  enhanceError.value = ''
+  enhanceProcessedCount.value = null
+
+  const { cropX, cropY, cropW, cropH } = enhanceCropBounds.value
+
+  try {
+    const res = await fetch(`/api/project/${props.uuid}/start_enhdb`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        'scale-x': clampPlainValue(enhanceForm.scale, 0.25, 4),
+        'scale-y': clampPlainValue(enhanceForm.scale, 0.25, 4),
+        rotate: clampPlainValue(enhanceForm.rotate, -180, 180),
+        'crop-x': cropX,
+        'crop-y': cropY,
+        'crop-w': cropW,
+        'crop-h': cropH,
+        contrast: clampPlainValue(enhanceForm.contrast, 0.2, 3),
+        gamma: clampPlainValue(enhanceForm.gamma, 0.2, 3),
+        'preserve-resolution': enhanceForm.preserveResolution,
+      }),
+    })
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      throw new Error(text || `请求失败：${res.status}`)
+    }
+
+    const payload = (await res.json().catch(() => ({}))) as { processed?: number }
+    enhanceProcessedCount.value = payload.processed ?? 0
+    enhancePhase.value = 'done'
+  } catch (err: any) {
+    console.error(err)
+    enhanceError.value = err?.message || String(err)
+    enhancePhase.value = 'error'
+  }
+}
+
+async function downloadEnhancementResult(type: EnhanceDownloadType) {
+  if ((type === 'markedpng' || type === 'fused') && !canDownloadMarkedPng.value) {
+    return
+  }
+
+  const urlMap: Record<EnhanceDownloadType, string> = {
+    npz: `/api/project/${props.uuid}/download/enhdb/npz`,
+    dcm: `/api/project/${props.uuid}/download/enhdb/dcm`,
+    nii: `/api/project/${props.uuid}/download/enhdb/nii`,
+    png: `/api/project/${props.uuid}/download/enhdb/png`,
+    markedpng: `/api/project/${props.uuid}/download/enhdb/markedpng`,
+    fused: `/api/project/${props.uuid}/download/enhdb/fused/png`,
+  }
+
+  downloadMessage.value = '正在准备下载文件'
+  downloadClosable.value = false
+  showDownloadModal.value = true
+  try {
+    await triggerDownload(urlMap[type])
+    downloadMessage.value = '下载已开始'
+    downloadClosable.value = true
+  } catch (err) {
+    console.error(err)
+    downloadMessage.value = '下载失败，请稍后重试'
+    downloadClosable.value = true
+  }
+}
+
 function openPngDownloadModal() {
   showPngDownloadModal.value = true
 }
@@ -881,8 +1177,30 @@ onBeforeUnmount(() => {
 .crop-label{font-size:13px;color:#475569}
 .crop-tip{font-size:12px;color:#64748b}
 .modal-card{width:min(92vw,640px);border-radius:12px;box-shadow:0 20px 50px rgba(2,6,23,0.2)}
+.enhance-modal-card{width:min(96vw,1180px);border-radius:12px;box-shadow:0 20px 50px rgba(2,6,23,0.2)}
 .modal-title{display:flex;align-items:center;justify-content:space-between}
 .modal-body{display:flex;flex-direction:column;gap:12px}
+.enhance-layout{display:grid;grid-template-columns:540px minmax(0,1fr);gap:18px;align-items:flex-start}
+.enhance-preview-panel{display:flex;flex-direction:column;gap:10px}
+.enhance-control-panel{display:flex;flex-direction:column;gap:14px;min-width:0}
+.enhance-note{font-size:12px;color:#64748b}
+.enhance-preview-frame{width:512px;height:512px;border-radius:12px;background:#0f172a;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.enhance-preview-window{width:512px;height:512px;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+.enhance-preview-fit{display:flex;align-items:center;justify-content:center;transform-origin:center center}
+.enhance-preview-crop{position:relative;overflow:hidden;background:#020617}
+.enhance-preview-image{width:512px;height:512px;object-fit:contain;display:block}
+.enhance-row{display:grid;grid-template-columns:96px minmax(0,1fr) 120px;gap:10px;align-items:center}
+.enhance-row--four{align-items:flex-start}
+.enhance-label{font-size:13px;color:#475569}
+.enhance-slider{width:100%}
+.enhance-crop-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;grid-column:2 / 4}
+.enhance-crop-item{display:grid;grid-template-columns:24px minmax(0,1fr);gap:8px;align-items:center}
+.enhance-crop-item span{font-size:12px;color:#64748b}
+.enhance-switch-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 0}
+.enhance-status{display:flex;flex-direction:column;gap:8px;padding:18px 0}
+.enhance-status-title{font-size:16px;color:#0f172a;font-weight:600}
+.enhance-status-desc{font-size:13px;color:#64748b}
+.enhance-downloads{display:flex;flex-direction:column;gap:10px}
 :deep(.n-modal-mask){backdrop-filter:blur(6px);background:rgba(15,23,42,0.35)}
 .type-row{display:flex;flex-wrap:wrap;gap:8px}
 .hint{color:rgba(63,63,70,0.85);font-size:13px}
@@ -898,5 +1216,9 @@ onBeforeUnmount(() => {
 @media (max-width: 900px){
   .upload-box,.image-frame{width:100%;height:auto;aspect-ratio:1/1}
   .slider{width:100%}
+  .enhance-layout{grid-template-columns:1fr}
+  .enhance-preview-frame{width:100%;height:auto;aspect-ratio:1/1}
+  .enhance-row{grid-template-columns:1fr}
+  .enhance-crop-grid{grid-column:auto;grid-template-columns:1fr}
 }
 </style>
