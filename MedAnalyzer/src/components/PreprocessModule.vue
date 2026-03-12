@@ -41,18 +41,20 @@
                 <div class="upload-box">暂无 PNG 序列</div>
               </template>
               <template v-else>
-                <div class="crop-window" :style="cropWindowStyle">
-                  <img class="base-image" :style="cropImageStyle" :src="currentImageUrl" alt="png" />
-                  <div v-if="showMarked" class="mark-layer">
-                    <img
-                      class="mark-image"
-                      :style="cropImageStyle"
-                      :src="currentMarkedUrl"
-                      alt="marked png"
-                    />
+                <div class="image-canvas" :style="imageTransformStyle">
+                  <div class="crop-window" :style="cropWindowStyle">
+                    <img class="base-image" :style="cropImageStyle" :src="currentImageUrl" alt="png" />
+                    <div v-if="showMarked" class="mark-layer">
+                      <img
+                        class="mark-image"
+                        :style="cropImageStyle"
+                        :src="currentMarkedUrl"
+                        alt="marked png"
+                      />
+                    </div>
                   </div>
+                  <div v-if="showCropOverlay" class="crop-overlay" :style="cropOverlayStyle"></div>
                 </div>
-                <div v-if="showCropOverlay" class="crop-overlay" :style="cropOverlayStyle"></div>
               </template>
             </div>
             <div v-if="showCropHint" class="crop-hint">当前显示裁切过的影像，在裁切图片将所有值设置为【-1】以关闭裁切</div>
@@ -72,6 +74,7 @@
               <n-button size="small" @click="downloadProcessed('nii')">转换为nii</n-button>
               <n-button size="small" @click="downloadProcessed('dcm')">转换为dcm</n-button>
               <n-divider />
+              <n-button size="small" @click="rotateClockwise">旋转（顺时针90度）</n-button>
               <n-button size="small" @click="enterCrop">裁切图像</n-button>
               <n-button v-if="canToggleMark" size="small" @click="toggleMark">
                 {{ showMarked ? '关闭标注显示' : '启用标注显示' }}
@@ -93,6 +96,7 @@
                 <n-input-number v-model:value="cropDraft[field.key]" :min="-1" :max="511" size="small" />
               </div>
               <n-space justify="end" align="center">
+                <n-button size="small" @click="rotateClockwise">旋转（顺时针90度）</n-button>
                 <span class="crop-tip">【-1】为不裁切</span>
                 <n-button size="small" tertiary @click="cancelCrop">取消</n-button>
                 <n-button size="small" type="primary" :loading="savingCrop" @click="saveCrop">确定</n-button>
@@ -263,6 +267,7 @@ const currentImageUrl = ref('')
 const currentMarkedUrl = ref('')
 const pngCache = new Map<string, string>()
 const markedCache = new Map<string, string>()
+const imageRotation = ref(90)
 
 const cropDraft = reactive<CropValues>({
   'semi-xL': -1,
@@ -304,6 +309,9 @@ const isSemiActive = computed(() => (projectConfig.value ? projectConfig.value.s
 const isCropApplied = computed(() => !isCropping.value && isSemiActive.value)
 
 const showCropOverlay = computed(() => isCropping.value)
+const imageTransformStyle = computed(() => ({
+  transform: `rotate(${imageRotation.value}deg)`,
+}))
 
 function getActiveCropValues(): CropValues {
   const config = projectConfig.value
@@ -641,6 +649,10 @@ function toggleMark() {
   showMarked.value = !showMarked.value
 }
 
+function rotateClockwise() {
+  imageRotation.value = (imageRotation.value + 90) % 360
+}
+
 function enterCrop() {
   isCropping.value = true
   const config = projectConfig.value
@@ -786,6 +798,7 @@ onBeforeUnmount(() => {
 .upload-box.clickable{cursor:pointer}
 .upload-icon{font-size:30px}
 .image-frame{width:512px;height:512px;border-radius:12px;overflow:hidden;background:#0f172a;position:relative;display:flex;align-items:center;justify-content:center}
+.image-canvas{width:512px;height:512px;position:relative;display:flex;align-items:center;justify-content:center;transform-origin:center center}
 .base-image{width:512px;height:512px;object-fit:contain;display:block}
 .mark-layer{position:absolute;inset:0;pointer-events:none}
 .mark-image{width:512px;height:512px;object-fit:contain;display:block}
