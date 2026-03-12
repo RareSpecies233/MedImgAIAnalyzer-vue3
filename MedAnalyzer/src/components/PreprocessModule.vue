@@ -69,11 +69,11 @@
 
           <template v-else-if="!isCropping">
             <n-space vertical :size="10">
+              <n-button size="small" type="primary" :disabled="pngList.length === 0" @click="openEnhanceModal">高级数据增强</n-button>
               <n-button size="small" @click="openPngDownloadModal">下载PNG</n-button>
               <n-button size="small" @click="downloadImmediate('npz')">转换为npz</n-button>
               <n-button size="small" @click="downloadProcessed('nii')">转换为nii</n-button>
               <n-button size="small" @click="downloadProcessed('dcm')">转换为dcm</n-button>
-              <n-button size="small" :disabled="pngList.length === 0" @click="openEnhanceModal">数据增强</n-button>
               <n-divider />
               <n-button size="small" @click="rotateClockwise">旋转（顺时针90度）</n-button>
               <n-button size="small" @click="enterCrop">裁切图像</n-button>
@@ -204,7 +204,7 @@
     <n-card class="enhance-modal-card" :bordered="false" role="dialog" aria-labelledby="enhance-title">
       <template #header>
         <div class="modal-title">
-          <span id="enhance-title">数据增强模块</span>
+          <span id="enhance-title">高级数据增强</span>
         </div>
       </template>
       <div class="enhance-layout">
@@ -296,7 +296,7 @@
           <template v-else-if="enhancePhase === 'processing'">
             <div class="enhance-status">
               <div class="enhance-status-title">正在处理中</div>
-              <div class="enhance-status-desc">正在向后端提交数据增强请求，请稍候…</div>
+              <div class="enhance-status-desc">正在向后端提交数据增强请求，请稍候…（数据量较大时需要较长时间，请耐心等待）</div>
             </div>
           </template>
 
@@ -1024,7 +1024,7 @@ async function downloadEnhancementResult(type: EnhanceDownloadType) {
     fused: `/api/project/${props.uuid}/download/enhdb/fused/png`,
   }
 
-  downloadMessage.value = '正在准备下载文件'
+  downloadMessage.value = '正在准备下载文件（数据量较大时需要较长时间，请耐心等待）'
   downloadClosable.value = false
   showDownloadModal.value = true
   try {
@@ -1053,7 +1053,7 @@ async function downloadPngVariant(type: 'image' | 'marked' | 'fused') {
     return
   }
   showPngDownloadModal.value = false
-  downloadMessage.value = '正在准备下载文件'
+  downloadMessage.value = '正在准备下载文件（数据量较大时需要较长时间，请耐心等待）'
   downloadClosable.value = false
   showDownloadModal.value = true
   try {
@@ -1080,7 +1080,7 @@ async function downloadImmediate(type: 'png' | 'npz') {
 }
 
 async function downloadProcessed(type: 'nii' | 'dcm') {
-  downloadMessage.value = '正在处理转换中'
+  downloadMessage.value = '正在处理转换中（数据量较大时需要较长时间，请耐心等待）'
   downloadClosable.value = false
   showDownloadModal.value = true
   try {

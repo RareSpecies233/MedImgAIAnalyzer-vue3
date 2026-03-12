@@ -659,7 +659,7 @@ async function downloadProcessedPngVariant(type: 'image' | 'marked' | 'fused') {
     return
   }
   showProcessedPngDownloadModal.value = false
-  downloadMessage.value = '正在准备下载文件'
+  downloadMessage.value = '正在准备下载文件（数据量较大时需要较长时间，请耐心等待）'
   downloadClosable.value = false
   showDownloadModal.value = true
   try {
@@ -674,7 +674,7 @@ async function downloadProcessedPngVariant(type: 'image' | 'marked' | 'fused') {
 }
 
 async function downloadProcessed(type: 'npz' | 'nii' | 'dcm') {
-  downloadMessage.value = '正在准备下载文件'
+  downloadMessage.value = '正在准备下载文件（数据量较大时需要较长时间，请耐心等待）'
   downloadClosable.value = false
   showDownloadModal.value = true
   try {
