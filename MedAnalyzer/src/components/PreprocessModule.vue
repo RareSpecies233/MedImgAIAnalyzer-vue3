@@ -991,7 +991,7 @@ function handleEnhanceModalUpdate(value: boolean) {
 
 function resetEnhanceForm() {
   enhanceForm.scale = 1
-  enhanceForm.rotate = 90
+  enhanceForm.rotate = -90
   enhanceForm.cropX = 0
   enhanceForm.cropY = 0
   enhanceForm.cropW = 512
