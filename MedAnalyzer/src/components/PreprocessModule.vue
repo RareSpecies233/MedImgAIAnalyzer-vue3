@@ -209,7 +209,7 @@
       </template>
       <div class="enhance-layout">
         <div class="enhance-preview-panel">
-          <div class="enhance-note">前端显示仅供参考，最终以后端处理结果为准</div>
+          <div class="enhance-note">数据为Float64格式，前端无法完整显示细节，仅供参考，最终以后端处理结果为准</div>
           <div class="enhance-player">
             <div class="slider-label">{{ enhanceSliderIndicator }}</div>
             <n-slider
@@ -470,7 +470,7 @@ const enhanceProcessedCount = ref<number | null>(null)
 
 const enhanceForm = reactive({
   scale: 1,
-  rotate: 0,
+  rotate: -90,
   cropX: 0,
   cropY: 0,
   cropW: 512,
@@ -562,7 +562,7 @@ const enhancePreviewCropStyle = computed(() => {
 const enhancePreviewStageStyle = computed(() => {
   const { cropX, cropY, cropW, cropH } = enhanceCropBounds.value
   const scale = clampPlainValue(enhanceForm.scale, 0.25, 4)
-  const rotate = clampPlainValue(enhanceForm.rotate, -180, 180)
+  const rotate = -clampPlainValue(enhanceForm.rotate, -180, 180)
   const translateX = 256 - (cropX + cropW / 2)
   const translateY = 256 - (cropY + cropH / 2)
   return {
@@ -991,7 +991,7 @@ function handleEnhanceModalUpdate(value: boolean) {
 
 function resetEnhanceForm() {
   enhanceForm.scale = 1
-  enhanceForm.rotate = 0
+  enhanceForm.rotate = 90
   enhanceForm.cropX = 0
   enhanceForm.cropY = 0
   enhanceForm.cropW = 512
@@ -1220,7 +1220,7 @@ onBeforeUnmount(() => {
 .enhance-layout{display:grid;grid-template-columns:540px minmax(0,1fr);gap:18px;align-items:flex-start}
 .enhance-preview-panel{display:flex;flex-direction:column;gap:10px}
 .enhance-control-panel{display:flex;flex-direction:column;gap:14px;min-width:0}
-.enhance-note{font-size:12px;color:#64748b}
+.enhance-note{font-size:12px;color:#dc2626;font-weight:700}
 .enhance-player{display:flex;align-items:center;gap:10px;margin-left:-8px}
 .enhance-preview-frame{width:512px;height:512px;border-radius:12px;background:#0f172a;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .enhance-preview-window{width:512px;height:512px;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
