@@ -210,6 +210,22 @@
       <div class="enhance-layout">
         <div class="enhance-preview-panel">
           <div class="enhance-note">前端显示仅供参考，最终以后端处理结果为准</div>
+          <div class="enhance-player">
+            <div class="slider-label">{{ enhanceSliderIndicator }}</div>
+            <n-slider
+              v-model:value="currentIndex"
+              :min="0"
+              :max="Math.max(0, pngList.length - 1)"
+              :step="1"
+              :disabled="pngList.length === 0"
+              :show-tooltip="false"
+              :tooltip="false"
+              class="slider"
+            />
+            <n-button size="small" secondary :disabled="pngList.length === 0" @click="togglePlay">
+              {{ isPlaying ? '暂停' : '播放' }}
+            </n-button>
+          </div>
           <div class="enhance-preview-frame">
             <template v-if="!currentImageUrl">
               <div class="upload-box">暂无 PNG 序列</div>
@@ -218,13 +234,15 @@
               <div class="enhance-preview-window">
                 <div class="enhance-preview-fit" :style="enhancePreviewFitStyle">
                   <div class="enhance-preview-crop" :style="enhancePreviewCropStyle">
-                    <img
-                      class="enhance-preview-image"
-                      :style="enhancePreviewImageStyle"
-                      :src="currentImageUrl"
-                      alt="增强预览"
-                      draggable="false"
-                    />
+                    <div class="enhance-preview-stage" :style="enhancePreviewStageStyle">
+                      <img
+                        class="enhance-preview-image"
+                        :style="enhancePreviewImageStyle"
+                        :src="currentImageUrl"
+                        alt="增强预览"
+                        draggable="false"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -253,19 +271,23 @@
               <div class="enhance-crop-grid">
                 <div class="enhance-crop-item">
                   <span>X</span>
+                  <n-slider v-model:value="enhanceForm.cropX" :min="0" :max="511" :step="1" class="enhance-crop-slider" />
                   <n-input-number v-model:value="enhanceForm.cropX" :min="0" :max="511" size="small" />
                 </div>
                 <div class="enhance-crop-item">
                   <span>Y</span>
+                  <n-slider v-model:value="enhanceForm.cropY" :min="0" :max="511" :step="1" class="enhance-crop-slider" />
                   <n-input-number v-model:value="enhanceForm.cropY" :min="0" :max="511" size="small" />
                 </div>
                 <div class="enhance-crop-item">
                   <span>宽</span>
-                  <n-input-number v-model:value="enhanceForm.cropW" :min="1" :max="512" size="small" />
+                  <n-slider v-model:value="enhanceForm.cropW" :min="1" :max="enhanceCropWMax" :step="1" class="enhance-crop-slider" />
+                  <n-input-number v-model:value="enhanceForm.cropW" :min="1" :max="enhanceCropWMax" size="small" />
                 </div>
                 <div class="enhance-crop-item">
                   <span>高</span>
-                  <n-input-number v-model:value="enhanceForm.cropH" :min="1" :max="512" size="small" />
+                  <n-slider v-model:value="enhanceForm.cropH" :min="1" :max="enhanceCropHMax" :step="1" class="enhance-crop-slider" />
+                  <n-input-number v-model:value="enhanceForm.cropH" :min="1" :max="enhanceCropHMax" size="small" />
                 </div>
               </div>
             </div>
@@ -495,6 +517,11 @@ const sliderIndicator = computed(() => {
   return `${currentIndex.value + 1} / ${pngList.value.length}`
 })
 
+const enhanceSliderIndicator = computed(() => {
+  if (!pngList.value.length) return '0 / 0'
+  return `${currentIndex.value + 1} / ${pngList.value.length}`
+})
+
 const isSemiActive = computed(() => (projectConfig.value ? projectConfig.value.semi !== false : false))
 const isCropApplied = computed(() => !isCropping.value && isSemiActive.value)
 
@@ -513,6 +540,9 @@ const enhanceCropBounds = computed(() => {
   return { cropX, cropY, cropW, cropH }
 })
 
+const enhanceCropWMax = computed(() => Math.max(1, 512 - clampPlainValue(enhanceForm.cropX, 0, 511)))
+const enhanceCropHMax = computed(() => Math.max(1, 512 - clampPlainValue(enhanceForm.cropY, 0, 511)))
+
 const enhancePreviewFitStyle = computed(() => {
   const { cropW, cropH } = enhanceCropBounds.value
   const scale = Math.min(512 / cropW, 512 / cropH)
@@ -529,15 +559,22 @@ const enhancePreviewCropStyle = computed(() => {
   }
 })
 
-const enhancePreviewImageStyle = computed(() => {
-  const { cropX, cropY } = enhanceCropBounds.value
-  const gamma = clampPlainValue(enhanceForm.gamma, 0.2, 3)
-  const contrast = clampPlainValue(enhanceForm.contrast, 0.2, 3)
+const enhancePreviewStageStyle = computed(() => {
+  const { cropX, cropY, cropW, cropH } = enhanceCropBounds.value
   const scale = clampPlainValue(enhanceForm.scale, 0.25, 4)
   const rotate = clampPlainValue(enhanceForm.rotate, -180, 180)
+  const translateX = 256 - (cropX + cropW / 2)
+  const translateY = 256 - (cropY + cropH / 2)
   return {
-    transform: `translate(${-cropX}px, ${-cropY}px) scale(${scale}) rotate(${rotate}deg)`,
-    transformOrigin: 'top left',
+    transform: `translate(${translateX}px, ${translateY}px) scale(${scale}) rotate(${rotate}deg)`,
+    transformOrigin: '256px 256px',
+  }
+})
+
+const enhancePreviewImageStyle = computed(() => {
+  const gamma = clampPlainValue(enhanceForm.gamma, 0.2, 3)
+  const contrast = clampPlainValue(enhanceForm.contrast, 0.2, 3)
+  return {
     filter: `contrast(${contrast}) brightness(${1 / gamma})`,
   }
 })
@@ -1184,18 +1221,21 @@ onBeforeUnmount(() => {
 .enhance-preview-panel{display:flex;flex-direction:column;gap:10px}
 .enhance-control-panel{display:flex;flex-direction:column;gap:14px;min-width:0}
 .enhance-note{font-size:12px;color:#64748b}
+.enhance-player{display:flex;align-items:center;gap:10px;margin-left:-8px}
 .enhance-preview-frame{width:512px;height:512px;border-radius:12px;background:#0f172a;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .enhance-preview-window{width:512px;height:512px;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
 .enhance-preview-fit{display:flex;align-items:center;justify-content:center;transform-origin:center center}
 .enhance-preview-crop{position:relative;overflow:hidden;background:#020617}
+.enhance-preview-stage{width:512px;height:512px;position:relative;transform-origin:256px 256px}
 .enhance-preview-image{width:512px;height:512px;object-fit:contain;display:block}
 .enhance-row{display:grid;grid-template-columns:96px minmax(0,1fr) 120px;gap:10px;align-items:center}
 .enhance-row--four{align-items:flex-start}
 .enhance-label{font-size:13px;color:#475569}
 .enhance-slider{width:100%}
 .enhance-crop-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;grid-column:2 / 4}
-.enhance-crop-item{display:grid;grid-template-columns:24px minmax(0,1fr);gap:8px;align-items:center}
+.enhance-crop-item{display:grid;grid-template-columns:24px minmax(0,1fr) 120px;gap:8px;align-items:center}
 .enhance-crop-item span{font-size:12px;color:#64748b}
+.enhance-crop-slider{width:100%}
 .enhance-switch-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 0}
 .enhance-status{display:flex;flex-direction:column;gap:8px;padding:18px 0}
 .enhance-status-title{font-size:16px;color:#0f172a;font-weight:600}
@@ -1220,5 +1260,6 @@ onBeforeUnmount(() => {
   .enhance-preview-frame{width:100%;height:auto;aspect-ratio:1/1}
   .enhance-row{grid-template-columns:1fr}
   .enhance-crop-grid{grid-column:auto;grid-template-columns:1fr}
+  .enhance-crop-item{grid-template-columns:24px minmax(0,1fr) 120px}
 }
 </style>
