@@ -35,6 +35,17 @@ export type LlmChatResponse = {
   contexts: string[]
 }
 
+export type ProjectLlmHistoryEntry = {
+  timestamp: string
+  question: string
+  answer: string
+  contexts: string[]
+}
+
+export type ProjectLlmUploadResponse = {
+  message: string
+}
+
 async function parseError(res: Response) {
   const text = await res.text().catch(() => '')
   return text || `${res.status}`
@@ -116,4 +127,54 @@ export async function chatWithRag(payload: LlmChatRequest): Promise<LlmChatRespo
     throw new Error(`问诊失败：${await parseError(res)}`)
   }
   return (await res.json()) as LlmChatResponse
+}
+
+export async function uploadProjectRagDocuments(
+  uuid: string,
+  files: File[],
+): Promise<ProjectLlmUploadResponse> {
+  const formData = new FormData()
+  files.forEach((file) => formData.append('file', file, file.name))
+
+  const res = await fetch(`/api/project/${encodeURIComponent(uuid)}/llm/doc`, {
+    method: 'POST',
+    body: formData,
+  })
+  if (!res.ok) {
+    throw new Error(`上传项目文档失败：${await parseError(res)}`)
+  }
+  return (await res.json()) as ProjectLlmUploadResponse
+}
+
+export async function chatWithProjectRag(
+  uuid: string,
+  payload: LlmChatRequest,
+): Promise<LlmChatResponse> {
+  const res = await fetch(`/api/project/${encodeURIComponent(uuid)}/llm/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) {
+    throw new Error(`项目问诊失败：${await parseError(res)}`)
+  }
+  return (await res.json()) as LlmChatResponse
+}
+
+export async function getProjectLlmHistory(uuid: string): Promise<ProjectLlmHistoryEntry[]> {
+  const res = await fetch(`/api/project/${encodeURIComponent(uuid)}/llm/history`)
+  if (!res.ok) {
+    throw new Error(`获取项目问诊历史失败：${await parseError(res)}`)
+  }
+  return (await res.json()) as ProjectLlmHistoryEntry[]
+}
+
+export async function clearProjectLlmHistory(uuid: string): Promise<{ message: string }> {
+  const res = await fetch(`/api/project/${encodeURIComponent(uuid)}/llm/history/delete`, {
+    method: 'POST',
+  })
+  if (!res.ok) {
+    throw new Error(`清空项目问诊历史失败：${await parseError(res)}`)
+  }
+  return (await res.json()) as { message: string }
 }

@@ -26,7 +26,7 @@
 
       <div class="module-stage">
         <KeepAlive>
-          <component :is="activeModule.component" v-bind="activeModuleProps" />
+          <component :is="activeModule.component" :uuid="props.uuid" />
         </KeepAlive>
       </div>
     </section>
@@ -35,7 +35,7 @@
       <PreprocessModule :uuid="props.uuid" />
       <AiAnalysisModule :uuid="props.uuid" />
       <ReconstructionModule :uuid="props.uuid" />
-      <AiConsultModule />
+      <AiConsultModule :uuid="props.uuid" />
     </template>
   </div>
 
@@ -197,10 +197,6 @@ const activeModuleKey = computed<ModuleKey>(() => {
 const activeModule = computed<ModuleItem>(() =>
   moduleItems.find((item) => item.key === activeModuleKey.value) ?? moduleItems[0]!,
 )
-const activeModuleProps = computed<Record<string, unknown>>(() =>
-  activeModule.value.key === 'consult' ? {} : { uuid: props.uuid },
-)
-
 const projectConfigFields = [
   { key: 'uuid', label: 'UUID' },
   { key: 'raw', label: 'raw（源文件）' },
