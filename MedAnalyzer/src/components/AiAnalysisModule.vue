@@ -222,7 +222,7 @@
           <div class="modal-tip">处理完成</div>
         </template>
         <template v-else>
-          <div class="modal-tip">处理失败（请检查后端模型）</div>
+          <div class="modal-tip">{{ analysisErrorMessage || '处理失败（请检查后端模型）' }}</div>
         </template>
       </div>
       <template #footer>
@@ -373,6 +373,7 @@ const showAnalysisModal = ref(false)
 const analysisPhase = ref<'select' | 'running' | 'done' | 'error'>('select')
 const analysisTarget = ref<AnalysisMode | null>(null)
 const analysisTimer = ref<number | null>(null)
+const analysisErrorMessage = ref('')
 
 const showDownloadModal = ref(false)
 const downloadMessage = ref('')
@@ -662,10 +663,18 @@ async function refreshModule() {
 }
 
 async function openAnalysisModal() {
+  await loadConfig()
+  if (projectConfig.value?.raw === false) {
+    analysisErrorMessage.value = '请先上传文件'
+    analysisPhase.value = 'error'
+    analysisTarget.value = null
+    showAnalysisModal.value = true
+    return
+  }
+  analysisErrorMessage.value = ''
   analysisPhase.value = 'select'
   analysisTarget.value = null
   showAnalysisModal.value = true
-  await loadConfig()
 }
 
 function handleAnalysisModalUpdate(value: boolean) {
@@ -682,6 +691,7 @@ function closeAnalysisModal() {
 }
 
 async function startAnalysis(mode: AnalysisMode) {
+  analysisErrorMessage.value = ''
   analysisPhase.value = 'running'
   analysisTarget.value = mode
   try {
@@ -691,11 +701,17 @@ async function startAnalysis(mode: AnalysisMode) {
       body: JSON.stringify({ mode }),
     })
     if (!res.ok) {
+      if ([408, 429, 500, 502, 503, 504].includes(res.status)) {
+        // 某些后端会在长任务启动时返回超时，但任务实际仍在后台执行，继续轮询结果
+        startAnalysisPolling()
+        return
+      }
       throw new Error(`启动分析失败：${res.status}`)
     }
     startAnalysisPolling()
-  } catch (err) {
+  } catch (err: any) {
     console.error(err)
+    analysisErrorMessage.value = err?.message || '处理失败，请稍后重试'
     analysisPhase.value = 'error'
   }
 }

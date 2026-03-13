@@ -4,16 +4,19 @@
       <div class="header-left">
         <h1>{{ moduleTitle }}</h1>
         <p class="subtitle">临时快速模式（/temp）</p>
+        <p class="warn-tip">此为临时项目，关闭界面后删除，如需下次访问，请点击保存</p>
         <p v-if="tempUUID" class="subtitle">当前临时项目 UUID：{{ tempUUID }}</p>
       </div>
       <n-space v-if="showTempImageTools" size="small">
+        <n-button v-if="!tempUUID" size="small" type="primary" @click="startTempSession">开始临时会话</n-button>
         <n-button size="small" tertiary :loading="uploading" @click="openUploadModal">上传文件</n-button>
         <n-button size="small" type="primary" :loading="savingProject" @click="openSaveProjectModal">保存项目</n-button>
       </n-space>
     </section>
 
-    <div v-if="loading" class="state">正在初始化临时项目…</div>
+    <div v-if="loading" class="state">正在读取临时项目状态…</div>
     <div v-else-if="error" class="state error">{{ error }}</div>
+    <div v-else-if="!tempUUID" class="state">尚未创建临时项目，请点击上方按钮开始临时会话或直接上传文件。</div>
     <component
       v-else-if="activeComponent && tempUUID"
       :key="moduleRenderKey"
@@ -42,11 +45,16 @@
         <div class="type-row">
           <n-radio-group v-model:value="selectedType" size="small">
             <n-space>
-              <n-radio-button value="png">PNG序列</n-radio-button>
-              <n-radio-button value="npz">NPZ序列</n-radio-button>
-              <n-radio-button value="markednpz">带有标注信息的NPZ序列</n-radio-button>
-              <n-radio-button value="nii">NII文件</n-radio-button>
-              <n-radio-button value="dcm">DCM序列</n-radio-button>
+              <template v-if="moduleKey === 'reconstruction'">
+                <n-radio-button value="markednpz">带有标注信息的NPZ序列</n-radio-button>
+              </template>
+              <template v-else>
+                <n-radio-button value="png">PNG序列</n-radio-button>
+                <n-radio-button value="npz">NPZ序列</n-radio-button>
+                <n-radio-button value="markednpz">带有标注信息的NPZ序列</n-radio-button>
+                <n-radio-button value="nii">NII文件</n-radio-button>
+                <n-radio-button value="dcm">DCM序列</n-radio-button>
+              </template>
             </n-space>
           </n-radio-group>
         </div>
@@ -259,14 +267,34 @@ function buildTempModulePath(uuid: string) {
 async function ensureTempProject() {
   const uuidParam = typeof route.params.uuid === 'string' ? route.params.uuid.trim() : ''
   if (!uuidParam) {
-    const created = await createTempProject('临时快速项目')
-    tempUUID.value = created.tempUUID
-    await router.replace(buildTempModulePath(created.tempUUID))
+    tempUUID.value = ''
     return
   }
 
   tempUUID.value = uuidParam
   await getProjectJson(uuidParam, 'temp')
+}
+
+async function ensureTempUUIDForAction() {
+  if (tempUUID.value) return tempUUID.value
+  const created = await createTempProject('临时快速项目')
+  tempUUID.value = created.tempUUID
+  await router.replace(buildTempModulePath(created.tempUUID))
+  return created.tempUUID
+}
+
+async function startTempSession() {
+  if (tempUUID.value) return
+  loading.value = true
+  error.value = ''
+  try {
+    await ensureTempUUIDForAction()
+  } catch (err: any) {
+    console.error(err)
+    error.value = err?.message || '创建临时项目失败'
+  } finally {
+    loading.value = false
+  }
 }
 
 async function initTempProject() {
@@ -283,6 +311,9 @@ async function initTempProject() {
 }
 
 function openUploadModal() {
+  if (moduleKey.value === 'reconstruction') {
+    selectedType.value = 'markednpz'
+  }
   showUploadModal.value = true
 }
 
@@ -294,7 +325,7 @@ function handleUploadModalUpdate(value: boolean) {
 function resetUploadState() {
   uploads.value = []
   uploading.value = false
-  selectedType.value = 'png'
+  selectedType.value = moduleKey.value === 'reconstruction' ? 'markednpz' : 'png'
 }
 
 function triggerFilePicker() {
@@ -323,7 +354,16 @@ function addUploads(files: File[]) {
 }
 
 async function uploadQueue() {
-  if (uploading.value || !tempUUID.value) return
+  if (uploading.value) return
+  if (!tempUUID.value) {
+    try {
+      await ensureTempUUIDForAction()
+    } catch (err) {
+      console.error(err)
+      openNotice('创建临时项目失败，请稍后重试')
+      return
+    }
+  }
   uploading.value = true
   for (const item of uploads.value) {
     if (item.status !== 'queued') continue
@@ -367,7 +407,12 @@ function uploadSingle(item: UploadItem) {
 }
 
 async function cancelUpload() {
-  if (!tempUUID.value) return
+  if (!tempUUID.value) {
+    showUploadModal.value = false
+    showConfirmModal.value = false
+    resetUploadState()
+    return
+  }
   try {
     await fetch(`/api/temp/${encodeURIComponent(tempUUID.value)}/uninit`, { method: 'POST' })
   } catch (err) {
@@ -380,7 +425,10 @@ async function cancelUpload() {
 }
 
 async function confirmInit() {
-  if (!tempUUID.value) return
+  if (!tempUUID.value) {
+    openNotice('请先上传文件')
+    return
+  }
   confirming.value = true
   try {
     const res = await fetch(`/api/temp/${encodeURIComponent(tempUUID.value)}/inited`, {
@@ -423,6 +471,10 @@ function stopPolling() {
 }
 
 function openSaveProjectModal() {
+  if (!tempUUID.value) {
+    openNotice('请先上传并初始化文件后再保存项目')
+    return
+  }
   saveProjectForm.name = ''
   saveProjectForm.note = ''
   showSaveProjectModal.value = true
@@ -497,6 +549,7 @@ onBeforeUnmount(() => {
 .header-left{padding-left:15px}
 .page-header h1{margin:0;font-size:22px}
 .subtitle{margin:4px 0 0;color:rgba(75,85,99,0.95);font-size:13px}
+.warn-tip{margin:6px 0 0;color:#dc2626;font-size:14px;font-weight:700}
 .state{padding:12px;border-radius:8px;background:#f8fafc;color:#334155}
 .state.error{color:#b91c1c;background:#fef2f2}
 .modal-card{width:min(92vw,640px);border-radius:12px;box-shadow:0 20px 50px rgba(2,6,23,0.2)}

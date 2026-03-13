@@ -420,6 +420,10 @@ async function openRebuildModal() {
 }
 
 function decideRebuildPhase() {
+  if (isTempScope.value) {
+    rebuildPhase.value = 'confirm'
+    return
+  }
   if (projectConfig.value?.PD === false) {
     rebuildPhase.value = 'blocked'
   } else {

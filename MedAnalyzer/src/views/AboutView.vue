@@ -340,6 +340,7 @@ function handleProjectViewModeChange(value: boolean) {
 }
 
 onMounted(async () => {
+  document.title = '南北绿豆'
   await Promise.all([loadSettings(), loadDocuments()])
 })
 </script>
