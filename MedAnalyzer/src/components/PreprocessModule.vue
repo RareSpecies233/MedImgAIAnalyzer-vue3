@@ -409,7 +409,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, reactive, ref, watch } from 'vue'
-import { getProjectJson, type ProjectConfig } from '../api/projects'
+import { getProjectJson, type ProjectConfig, type ProjectScope } from '../api/projects'
 
 type UploadStatus = 'queued' | 'uploading' | 'done' | 'error'
 type UploadItem = {
@@ -432,7 +432,17 @@ type CropValues = {
 type EnhancePhase = 'config' | 'processing' | 'done' | 'error'
 type EnhanceDownloadType = 'npz' | 'dcm' | 'nii' | 'png' | 'markedpng' | 'fused'
 
-const props = defineProps<{ uuid: string }>()
+const props = withDefaults(
+  defineProps<{ uuid: string; scope?: ProjectScope }>(),
+  { scope: 'project' },
+)
+
+const apiBase = computed(() =>
+  props.scope === 'temp' ? `/api/temp/${props.uuid}` : `/api/project/${props.uuid}`,
+)
+const metaApiBase = computed(() =>
+  props.scope === 'temp' ? `/api/temp/${props.uuid}` : `/api/projects/${props.uuid}`,
+)
 
 const projectConfig = ref<ProjectConfig | null>(null)
 const loadingConfig = ref(true)
@@ -649,11 +659,11 @@ function clampPlainValue(value: number, min: number, max: number) {
 
 
 function buildPngUrl(filename: string) {
-  return `/api/project/${props.uuid}/png/${filename}`
+  return `${apiBase.value}/png/${filename}`
 }
 
 function buildMarkedUrl(filename: string) {
-  return `/api/project/${props.uuid}/markedpng/${filename}`
+  return `${apiBase.value}/markedpng/${filename}`
 }
 
 async function ensureCachedUrl(cache: Map<string, string>, key: string, url: string) {
@@ -713,7 +723,7 @@ async function loadConfig() {
   loadingConfig.value = true
   errorConfig.value = null
   try {
-    projectConfig.value = await getProjectJson(props.uuid)
+    projectConfig.value = await getProjectJson(props.uuid, props.scope)
   } catch (err: any) {
     console.error(err)
     errorConfig.value = err?.message || String(err)
@@ -724,7 +734,7 @@ async function loadConfig() {
 
 async function loadPngList() {
   try {
-    const res = await fetch(`/api/project/${props.uuid}/png`)
+    const res = await fetch(`${apiBase.value}/png`)
     if (!res.ok) throw new Error('无法获取 PNG 列表')
     pngList.value = (await res.json()) as string[]
     if (currentIndex.value >= pngList.value.length) currentIndex.value = 0
@@ -736,7 +746,7 @@ async function loadPngList() {
 
 async function loadMarkedList() {
   try {
-    const res = await fetch(`/api/project/${props.uuid}/markedpng`)
+    const res = await fetch(`${apiBase.value}/markedpng`)
     if (!res.ok) throw new Error('无法获取标注 PNG 列表')
     markedList.value = (await res.json()) as string[]
   } catch (err) {
@@ -802,7 +812,7 @@ function uploadSingle(item: UploadItem) {
   item.progress = 0
   return new Promise<void>((resolve) => {
     const xhr = new XMLHttpRequest()
-    xhr.open('POST', `/api/project/${props.uuid}/upload`)
+    xhr.open('POST', `${apiBase.value}/upload`)
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) {
         item.progress = Math.round((event.loaded / event.total) * 100)
@@ -832,7 +842,7 @@ function uploadSingle(item: UploadItem) {
 
 async function cancelUpload() {
   try {
-    await fetch(`/api/projects/${props.uuid}/uninit`, { method: 'POST' })
+    await fetch(`${metaApiBase.value}/uninit`, { method: 'POST' })
   } catch (err) {
     console.error(err)
   } finally {
@@ -851,7 +861,7 @@ async function cancelUpload() {
 async function confirmInit() {
   confirming.value = true
   try {
-    await fetch(`/api/project/${props.uuid}/inited`, {
+    await fetch(`${apiBase.value}/inited`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ raw: selectedType.value }),
@@ -944,7 +954,7 @@ async function saveCrop() {
       cropDraft['semi-xR'] !== -1 ||
       cropDraft['semi-yL'] !== -1 ||
       cropDraft['semi-yR'] !== -1
-    await fetch(`/api/projects/${props.uuid}/semi`, {
+    await fetch(`${metaApiBase.value}/semi`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1015,7 +1025,7 @@ async function applyEnhancement() {
   const { cropX, cropY, cropW, cropH } = enhanceCropBounds.value
 
   try {
-    const res = await fetch(`/api/project/${props.uuid}/start_enhdb`, {
+    const res = await fetch(`${apiBase.value}/start_enhdb`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1053,12 +1063,12 @@ async function downloadEnhancementResult(type: EnhanceDownloadType) {
   }
 
   const urlMap: Record<EnhanceDownloadType, string> = {
-    npz: `/api/project/${props.uuid}/download/enhdb/npz`,
-    dcm: `/api/project/${props.uuid}/download/enhdb/dcm`,
-    nii: `/api/project/${props.uuid}/download/enhdb/nii`,
-    png: `/api/project/${props.uuid}/download/enhdb/png`,
-    markedpng: `/api/project/${props.uuid}/download/enhdb/markedpng`,
-    fused: `/api/project/${props.uuid}/download/enhdb/fused/png`,
+    npz: `${apiBase.value}/download/enhdb/npz`,
+    dcm: `${apiBase.value}/download/enhdb/dcm`,
+    nii: `${apiBase.value}/download/enhdb/nii`,
+    png: `${apiBase.value}/download/enhdb/png`,
+    markedpng: `${apiBase.value}/download/enhdb/markedpng`,
+    fused: `${apiBase.value}/download/enhdb/fused/png`,
   }
 
   downloadMessage.value = '正在准备下载文件（数据量较大时需要较长时间，请耐心等待）'
@@ -1082,10 +1092,10 @@ function openPngDownloadModal() {
 async function downloadPngVariant(type: 'image' | 'marked' | 'fused') {
   const url =
     type === 'image'
-      ? `/api/project/${props.uuid}/download/png`
+      ? `${apiBase.value}/download/png`
       : type === 'marked'
-        ? `/api/project/${props.uuid}/download/markedpng`
-        : `/api/project/${props.uuid}/download/fused/png`
+        ? `${apiBase.value}/download/markedpng`
+        : `${apiBase.value}/download/fused/png`
   if (type !== 'image' && !canDownloadMarkedPng.value) {
     return
   }
@@ -1109,7 +1119,7 @@ async function downloadImmediate(type: 'png' | 'npz') {
   downloadClosable.value = true
   showDownloadModal.value = true
   try {
-    await triggerDownload(`/api/project/${props.uuid}/download/${type}`)
+    await triggerDownload(`${apiBase.value}/download/${type}`)
   } catch (err) {
     console.error(err)
     downloadMessage.value = '转换失败，请稍后重试'
@@ -1121,7 +1131,7 @@ async function downloadProcessed(type: 'nii' | 'dcm') {
   downloadClosable.value = false
   showDownloadModal.value = true
   try {
-    await triggerDownload(`/api/project/${props.uuid}/download/${type}`)
+    await triggerDownload(`${apiBase.value}/download/${type}`)
     downloadMessage.value = '转换完成，已开始下载'
     downloadClosable.value = true
   } catch (err) {

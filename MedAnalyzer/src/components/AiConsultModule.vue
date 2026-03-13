@@ -152,6 +152,7 @@ import {
   getProjectLlmHistory,
   listRagDocuments,
   uploadProjectRagDocuments,
+  type ProjectScope,
   type ProjectLlmHistoryEntry,
 } from '../api/llm'
 
@@ -166,7 +167,10 @@ type ChatMessage = {
   timestamp?: string
 }
 
-const props = defineProps<{ uuid: string }>()
+const props = withDefaults(
+  defineProps<{ uuid: string; scope?: ProjectScope }>(),
+  { scope: 'project' },
+)
 
 const md = new MarkdownIt({
   html: false,
@@ -309,7 +313,7 @@ function normalizeHistoryEntries(payload: unknown): ProjectLlmHistoryEntry[] {
 async function loadHistory() {
   loadingHistory.value = true
   try {
-    const history = normalizeHistoryEntries(await getProjectLlmHistory(props.uuid))
+    const history = normalizeHistoryEntries(await getProjectLlmHistory(props.uuid, props.scope))
     messages.value = []
     for (const entry of history) {
       pushMessage('user', entry.question, 'history', entry.timestamp)
@@ -349,7 +353,7 @@ async function uploadDocuments() {
   uploadError.value = ''
   uploadResultMessage.value = ''
   try {
-    const response = await uploadProjectRagDocuments(props.uuid, selectedFiles.value)
+    const response = await uploadProjectRagDocuments(props.uuid, selectedFiles.value, props.scope)
     projectDocNames.value = Array.from(
       new Set([...projectDocNames.value, ...selectedFiles.value.map((file) => file.name)]),
     )
@@ -373,7 +377,7 @@ async function send() {
   await scrollToBottom()
 
   try {
-    const response = await chatWithProjectRag(props.uuid, { question: content })
+    const response = await chatWithProjectRag(props.uuid, { question: content }, props.scope)
     const answer = (response.answer || '').trim() || '模型未返回内容'
     pushMessage('assistant', answer, 'current', new Date().toISOString())
     const hitDocuments = collectHitDocuments(response.contexts || [])
@@ -398,7 +402,7 @@ async function confirmClear() {
   if (clearing.value) return
   clearing.value = true
   try {
-    await clearProjectLlmHistory(props.uuid)
+    await clearProjectLlmHistory(props.uuid, props.scope)
     messages.value = []
     projectDocNames.value = []
     question.value = ''

@@ -8,6 +8,20 @@
       <div v-else-if="modelError" class="state error">模型加载失败：{{ modelError }}</div>
 
       <div class="recon-top">
+        <n-space v-if="isTempScope" size="small" align="center" wrap>
+          <n-button size="small" tertiary :loading="tempUploading" @click="triggerTempUpload">
+            上传NPZ文件
+          </n-button>
+          <n-button size="small" type="primary" @click="openSaveProjectModal">保存项目</n-button>
+          <input
+            ref="tempUploadInput"
+            type="file"
+            class="hidden-input"
+            accept=".npz"
+            multiple
+            @change="handleTempFilesSelected"
+          />
+        </n-space>
         <n-space size="small" align="center">
           <n-button size="small" type="primary" @click="openRebuildModal">
             开始/重新三维重建
@@ -172,6 +186,42 @@
   </n-modal>
 
   <n-modal
+    v-if="showSaveProjectModal"
+    :show="showSaveProjectModal"
+    teleported
+    :mask-closable="!savingProject"
+    :close-on-esc="!savingProject"
+    @update:show="handleSaveProjectModalUpdate"
+  >
+    <n-card class="modal-card" :bordered="false" role="dialog" aria-labelledby="save-project-title">
+      <template #header>
+        <div class="modal-title">
+          <span id="save-project-title">保存项目</span>
+        </div>
+      </template>
+      <div class="modal-body">
+        <n-input v-model:value="saveProjectForm.name" placeholder="请输入项目名称" />
+        <n-input
+          v-model:value="saveProjectForm.note"
+          type="textarea"
+          :autosize="{ minRows: 3, maxRows: 5 }"
+          placeholder="请输入项目备注（可选）"
+        />
+      </div>
+      <template #footer>
+        <n-space justify="end">
+          <n-button size="small" tertiary :disabled="savingProject" @click="showSaveProjectModal = false">
+            取消
+          </n-button>
+          <n-button size="small" type="primary" :loading="savingProject" @click="confirmSaveProject">
+            确定
+          </n-button>
+        </n-space>
+      </template>
+    </n-card>
+  </n-modal>
+
+  <n-modal
     v-if="showDownloadModal"
     :show="showDownloadModal"
     teleported
@@ -214,11 +264,18 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import * as THREE from 'three'
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
-import { getProjectJson, type ProjectConfig } from '../api/projects'
+import {
+  convertTempProject,
+  getProjectJson,
+  type ProjectConfig,
+  type ProjectScope,
+} from '../api/projects'
+import { clearStoredTempUUID } from '../utils/tempProjectSession'
 
 type ViewerKey = 'raw' | 'processed'
 type DownloadTarget = 'ai' | 'og'
@@ -256,7 +313,19 @@ type ViewerContext = {
   lastSpherical: THREE.Spherical
 }
 
-const props = defineProps<{ uuid: string }>()
+const props = withDefaults(
+  defineProps<{ uuid: string; scope?: ProjectScope }>(),
+  { scope: 'project' },
+)
+const router = useRouter()
+
+const isTempScope = computed(() => props.scope === 'temp')
+const apiBase = computed(() =>
+  isTempScope.value ? `/api/temp/${props.uuid}` : `/api/project/${props.uuid}`,
+)
+const metaApiBase = computed(() =>
+  isTempScope.value ? `/api/temp/${props.uuid}` : `/api/projects/${props.uuid}`,
+)
 
 const projectConfig = ref<ProjectConfig | null>(null)
 const errorConfig = ref<string | null>(null)
@@ -277,6 +346,14 @@ const syncRotate = ref(false)
 const syncZoom = ref(false)
 const syncLock = ref(false)
 const lastActiveKey = ref<ViewerKey>('processed')
+const tempUploadInput = ref<HTMLInputElement | null>(null)
+const tempUploading = ref(false)
+const showSaveProjectModal = ref(false)
+const savingProject = ref(false)
+const saveProjectForm = reactive({
+  name: '',
+  note: '',
+})
 
 const viewerStates = reactive({
   raw: createViewerState(),
@@ -308,7 +385,7 @@ function createViewerState(): ViewerState {
 
 async function loadConfig() {
   try {
-    projectConfig.value = await getProjectJson(props.uuid)
+    projectConfig.value = await getProjectJson(props.uuid, props.scope)
   } catch (err: any) {
     console.error(err)
     errorConfig.value = err?.message || String(err)
@@ -364,7 +441,7 @@ function closeRebuildModal() {
 async function startRebuild() {
   rebuildPhase.value = 'running'
   try {
-    await fetch(`/api/project/${props.uuid}/to_3d_model`, {
+    await fetch(`${apiBase.value}/to_3d_model`, {
       method: 'POST',
     })
     startRebuildPolling()
@@ -470,6 +547,95 @@ function toggleSyncZoom() {
   }
 }
 
+function triggerTempUpload() {
+  if (!isTempScope.value || tempUploading.value) return
+  tempUploadInput.value?.click()
+}
+
+async function handleTempFilesSelected(event: Event) {
+  if (!isTempScope.value || tempUploading.value) return
+  const input = event.target as HTMLInputElement
+  const files = Array.from(input.files || [])
+  input.value = ''
+  if (!files.length) return
+
+  tempUploading.value = true
+  downloadPhase.value = 'running'
+  downloadMessage.value = '正在上传并初始化NPZ，请稍候…'
+  downloadClosable.value = false
+  showDownloadModal.value = true
+  try {
+    await fetch(`${metaApiBase.value}/uninit`, { method: 'POST' }).catch(() => undefined)
+    for (const file of files) {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch(`${apiBase.value}/upload`, {
+        method: 'POST',
+        body: formData,
+      })
+      if (!res.ok) throw new Error(`上传失败：${file.name}`)
+    }
+    const initRes = await fetch(`${apiBase.value}/inited`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ raw: 'npz' }),
+    })
+    if (!initRes.ok) throw new Error('初始化失败')
+    await refreshModule()
+    downloadPhase.value = 'done'
+    downloadMessage.value = '上传完成，已初始化为NPZ序列'
+    downloadClosable.value = true
+  } catch (err) {
+    console.error(err)
+    downloadPhase.value = 'error'
+    downloadMessage.value = '上传或初始化失败，请稍后重试'
+    downloadClosable.value = true
+  } finally {
+    tempUploading.value = false
+  }
+}
+
+function openSaveProjectModal() {
+  if (!isTempScope.value) return
+  saveProjectForm.name = ''
+  saveProjectForm.note = ''
+  showSaveProjectModal.value = true
+}
+
+function handleSaveProjectModalUpdate(value: boolean) {
+  if (savingProject.value && !value) return
+  showSaveProjectModal.value = value
+}
+
+async function confirmSaveProject() {
+  const name = saveProjectForm.name.trim()
+  if (!name) {
+    downloadPhase.value = 'error'
+    downloadMessage.value = '请先输入项目名称'
+    downloadClosable.value = true
+    showDownloadModal.value = true
+    return
+  }
+  savingProject.value = true
+  try {
+    const project = await convertTempProject(props.uuid, {
+      name,
+      note: saveProjectForm.note.trim(),
+    })
+    clearStoredTempUUID()
+    showSaveProjectModal.value = false
+    await router.push({ name: 'project', params: { uuid: project.uuid } })
+  } catch (err) {
+    console.error(err)
+    downloadPhase.value = 'error'
+    downloadMessage.value = '保存项目失败，请稍后重试'
+    downloadClosable.value = true
+    showDownloadModal.value = true
+  } finally {
+    savingProject.value = false
+  }
+}
+
 async function ensureViewer(key: ViewerKey) {
   if (viewers[key]) return
   const canvas = key === 'raw' ? rawCanvas.value : processedCanvas.value
@@ -572,7 +738,7 @@ function resizeRenderer(key: ViewerKey) {
 async function loadModel(key: ViewerKey) {
   const viewer = viewers[key]
   if (!viewer) return
-  const url = key === 'raw' ? `/api/project/${props.uuid}/download/OG3d` : `/api/project/${props.uuid}/download/3d`
+  const url = key === 'raw' ? `${apiBase.value}/download/OG3d` : `${apiBase.value}/download/3d`
   const arrayBuffer = await fetchArrayBuffer(url)
   const loader = new GLTFLoader()
   const gltf = await new Promise<THREE.Group>((resolve, reject) => {
@@ -897,6 +1063,7 @@ onBeforeUnmount(() => {
 .modal-title{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .modal-body{padding:8px 0 4px}
 .modal-tip{font-size:14px;color:#1f2937}
+.hidden-input{display:none}
 :deep(.n-modal-mask){backdrop-filter:blur(6px);background:rgba(15,23,42,0.35)}
 @media (max-width: 900px){
   .recon-display.dual{grid-template-columns:1fr}

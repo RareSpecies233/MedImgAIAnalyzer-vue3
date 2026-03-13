@@ -45,6 +45,30 @@ const router = createRouter({
       component: () => import('../views/AboutView.vue'),
       meta: { routePrefix: '/client', hideNav: true },
     },
+    {
+      path: '/temp/preprocess',
+      name: 'temp-preprocess',
+      component: () => import('../views/TempQuickModuleView.vue'),
+      meta: { routePrefix: '', hideNav: false, tempModule: 'preprocess' },
+    },
+    {
+      path: '/temp/analysis',
+      name: 'temp-analysis',
+      component: () => import('../views/TempQuickModuleView.vue'),
+      meta: { routePrefix: '', hideNav: false, tempModule: 'analysis' },
+    },
+    {
+      path: '/temp/reconstruction',
+      name: 'temp-reconstruction',
+      component: () => import('../views/TempQuickModuleView.vue'),
+      meta: { routePrefix: '', hideNav: false, tempModule: 'reconstruction' },
+    },
+    {
+      path: '/temp/consult',
+      name: 'temp-consult',
+      component: () => import('../views/TempQuickModuleView.vue'),
+      meta: { routePrefix: '', hideNav: false, tempModule: 'consult' },
+    },
   ],
 })
 

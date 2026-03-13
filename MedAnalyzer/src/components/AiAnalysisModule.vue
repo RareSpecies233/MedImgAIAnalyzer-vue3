@@ -7,6 +7,22 @@
       <div v-if="errorConfig" class="state error">加载失败：{{ errorConfig }}</div>
 
       <div class="analysis-top">
+        <div v-if="isTempScope" class="temp-tools">
+          <n-space size="small" align="center" wrap>
+            <n-button size="small" tertiary :loading="tempUploading" @click="triggerTempUpload">
+              上传NPZ文件
+            </n-button>
+            <n-button size="small" type="primary" @click="openSaveProjectModal">保存项目</n-button>
+          </n-space>
+          <input
+            ref="tempUploadInput"
+            type="file"
+            class="hidden-input"
+            accept=".npz"
+            multiple
+            @change="handleTempFilesSelected"
+          />
+        </div>
         <div class="analysis-actions">
           <n-button size="small" type="primary" @click="openAnalysisModal">开始/重新分析</n-button>
           <span class="analysis-note">【每次分析都会覆盖之前的分析结果，请谨慎操作】</span>
@@ -225,6 +241,42 @@
   </n-modal>
 
   <n-modal
+    v-if="showSaveProjectModal"
+    :show="showSaveProjectModal"
+    teleported
+    :mask-closable="!savingProject"
+    :close-on-esc="!savingProject"
+    @update:show="handleSaveProjectModalUpdate"
+  >
+    <n-card class="modal-card" :bordered="false" role="dialog" aria-labelledby="save-project-title">
+      <template #header>
+        <div class="modal-title">
+          <span id="save-project-title">保存项目</span>
+        </div>
+      </template>
+      <div class="modal-body">
+        <n-input v-model:value="saveProjectForm.name" placeholder="请输入项目名称" />
+        <n-input
+          v-model:value="saveProjectForm.note"
+          type="textarea"
+          :autosize="{ minRows: 3, maxRows: 5 }"
+          placeholder="请输入项目备注（可选）"
+        />
+      </div>
+      <template #footer>
+        <n-space justify="end">
+          <n-button size="small" tertiary :disabled="savingProject" @click="showSaveProjectModal = false">
+            取消
+          </n-button>
+          <n-button size="small" type="primary" :loading="savingProject" @click="confirmSaveProject">
+            确定
+          </n-button>
+        </n-space>
+      </template>
+    </n-card>
+  </n-modal>
+
+  <n-modal
     v-if="showProcessedPngDownloadModal"
     :show="showProcessedPngDownloadModal"
     teleported
@@ -288,12 +340,31 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { getProjectJson, type ProjectConfig } from '../api/projects'
+import { useRouter } from 'vue-router'
+import {
+  convertTempProject,
+  getProjectJson,
+  type ProjectConfig,
+  type ProjectScope,
+} from '../api/projects'
+import { clearStoredTempUUID } from '../utils/tempProjectSession'
 
 type ViewerKey = 'raw' | 'processed'
 type AnalysisMode = 'raw' | 'semi'
 
-const props = defineProps<{ uuid: string }>()
+const props = withDefaults(
+  defineProps<{ uuid: string; scope?: ProjectScope }>(),
+  { scope: 'project' },
+)
+const router = useRouter()
+
+const isTempScope = computed(() => props.scope === 'temp')
+const apiBase = computed(() =>
+  isTempScope.value ? `/api/temp/${props.uuid}` : `/api/project/${props.uuid}`,
+)
+const metaApiBase = computed(() =>
+  isTempScope.value ? `/api/temp/${props.uuid}` : `/api/projects/${props.uuid}`,
+)
 
 const projectConfig = ref<ProjectConfig | null>(null)
 const errorConfig = ref<string | null>(null)
@@ -307,6 +378,14 @@ const showDownloadModal = ref(false)
 const downloadMessage = ref('')
 const downloadClosable = ref(true)
 const showProcessedPngDownloadModal = ref(false)
+const tempUploadInput = ref<HTMLInputElement | null>(null)
+const tempUploading = ref(false)
+const showSaveProjectModal = ref(false)
+const savingProject = ref(false)
+const saveProjectForm = reactive({
+  name: '',
+  note: '',
+})
 
 const syncZoom = ref(false)
 const syncPlay = ref(false)
@@ -417,19 +496,19 @@ function buildTransformStyle(transform: { scale: number; x: number; y: number; r
 }
 
 function buildMarkedUrl(filename: string) {
-  return `/api/project/${props.uuid}/markedpng/${encodeURIComponent(filename)}`
+  return `${apiBase.value}/markedpng/${encodeURIComponent(filename)}`
 }
 
 function buildRawUrl(filename: string) {
-  return `/api/project/${props.uuid}/png/${encodeURIComponent(filename)}`
+  return `${apiBase.value}/png/${encodeURIComponent(filename)}`
 }
 
 function buildProcessedUrl(filename: string) {
-  return `/api/project/${props.uuid}/png/${encodeURIComponent(filename)}`
+  return `${apiBase.value}/png/${encodeURIComponent(filename)}`
 }
 
 function buildProcessedMarkedUrl(filename: string) {
-  return `/api/project/${props.uuid}/processed/png/${encodeURIComponent(filename)}`
+  return `${apiBase.value}/processed/png/${encodeURIComponent(filename)}`
 }
 
 async function ensureCachedUrl(cache: Map<string, string>, key: string, url: string) {
@@ -527,7 +606,7 @@ function revokeCache(cache: Map<string, string>) {
 async function loadConfig() {
   errorConfig.value = null
   try {
-    projectConfig.value = await getProjectJson(props.uuid)
+    projectConfig.value = await getProjectJson(props.uuid, props.scope)
   } catch (err: any) {
     console.error(err)
     errorConfig.value = err?.message || String(err)
@@ -537,7 +616,7 @@ async function loadConfig() {
 
 async function loadRawList() {
   try {
-    const res = await fetch(`/api/project/${props.uuid}/png`)
+    const res = await fetch(`${apiBase.value}/png`)
     if (!res.ok) throw new Error('无法获取 PNG 列表')
     rawList.value = (await res.json()) as string[]
     processedList.value = rawList.value
@@ -552,7 +631,7 @@ async function loadRawList() {
 
 async function loadRawMarkedList() {
   try {
-    const res = await fetch(`/api/project/${props.uuid}/markedpng`)
+    const res = await fetch(`${apiBase.value}/markedpng`)
     if (!res.ok) throw new Error('无法获取标注 PNG 列表')
     rawMarkedList.value = (await res.json()) as string[]
   } catch (err) {
@@ -563,7 +642,7 @@ async function loadRawMarkedList() {
 
 async function loadProcessedList() {
   try {
-    const res = await fetch(`/api/project/${props.uuid}/processed/png`)
+    const res = await fetch(`${apiBase.value}/processed/png`)
     if (!res.ok) throw new Error('无法获取处理 PNG 列表')
     processedMarkedList.value = (await res.json()) as string[]
     if (processedIndex.value >= processedList.value.length) processedIndex.value = 0
@@ -606,7 +685,7 @@ async function startAnalysis(mode: AnalysisMode) {
   analysisPhase.value = 'running'
   analysisTarget.value = mode
   try {
-    const res = await fetch(`/api/project/${props.uuid}/start_analysis`, {
+    const res = await fetch(`${apiBase.value}/start_analysis`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ mode }),
@@ -651,10 +730,10 @@ function openProcessedPngDownloadModal() {
 async function downloadProcessedPngVariant(type: 'image' | 'marked' | 'fused') {
   const url =
     type === 'image'
-      ? `/api/project/${props.uuid}/download/png`
+      ? `${apiBase.value}/download/png`
       : type === 'marked'
-        ? `/api/project/${props.uuid}/download/processed/markedpng`
-        : `/api/project/${props.uuid}/download/processed/fused/png`
+        ? `${apiBase.value}/download/processed/markedpng`
+        : `${apiBase.value}/download/processed/fused/png`
   if (type !== 'image' && !canDownloadProcessedMarkedPng.value) {
     return
   }
@@ -678,7 +757,7 @@ async function downloadProcessed(type: 'npz' | 'nii' | 'dcm') {
   downloadClosable.value = false
   showDownloadModal.value = true
   try {
-    await triggerDownload(`/api/project/${props.uuid}/download/processed/${type}`)
+    await triggerDownload(`${apiBase.value}/download/processed/${type}`)
     downloadMessage.value = '处理完成，已开始下载'
     downloadClosable.value = true
   } catch (err) {
@@ -700,6 +779,90 @@ async function triggerDownload(url: string) {
   link.click()
   link.remove()
   URL.revokeObjectURL(objectUrl)
+}
+
+function triggerTempUpload() {
+  if (!isTempScope.value || tempUploading.value) return
+  tempUploadInput.value?.click()
+}
+
+async function handleTempFilesSelected(event: Event) {
+  if (!isTempScope.value || tempUploading.value) return
+  const input = event.target as HTMLInputElement
+  const files = Array.from(input.files || [])
+  input.value = ''
+  if (!files.length) return
+
+  tempUploading.value = true
+  downloadMessage.value = '正在上传并初始化NPZ，请稍候…'
+  downloadClosable.value = false
+  showDownloadModal.value = true
+  try {
+    await fetch(`${metaApiBase.value}/uninit`, { method: 'POST' }).catch(() => undefined)
+    for (const file of files) {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch(`${apiBase.value}/upload`, {
+        method: 'POST',
+        body: formData,
+      })
+      if (!res.ok) throw new Error(`上传失败：${file.name}`)
+    }
+    const initRes = await fetch(`${apiBase.value}/inited`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ raw: 'npz' }),
+    })
+    if (!initRes.ok) throw new Error('初始化失败')
+    await refreshModule()
+    downloadMessage.value = '上传完成，已初始化为NPZ序列'
+    downloadClosable.value = true
+  } catch (err) {
+    console.error(err)
+    downloadMessage.value = '上传或初始化失败，请稍后重试'
+    downloadClosable.value = true
+  } finally {
+    tempUploading.value = false
+  }
+}
+
+function openSaveProjectModal() {
+  if (!isTempScope.value) return
+  saveProjectForm.name = ''
+  saveProjectForm.note = ''
+  showSaveProjectModal.value = true
+}
+
+function handleSaveProjectModalUpdate(value: boolean) {
+  if (savingProject.value && !value) return
+  showSaveProjectModal.value = value
+}
+
+async function confirmSaveProject() {
+  const name = saveProjectForm.name.trim()
+  if (!name) {
+    downloadMessage.value = '请先输入项目名称'
+    downloadClosable.value = true
+    showDownloadModal.value = true
+    return
+  }
+  savingProject.value = true
+  try {
+    const project = await convertTempProject(props.uuid, {
+      name,
+      note: saveProjectForm.note.trim(),
+    })
+    clearStoredTempUUID()
+    showSaveProjectModal.value = false
+    await router.push({ name: 'project', params: { uuid: project.uuid } })
+  } catch (err) {
+    console.error(err)
+    downloadMessage.value = '保存项目失败，请稍后重试'
+    downloadClosable.value = true
+    showDownloadModal.value = true
+  } finally {
+    savingProject.value = false
+  }
 }
 
 function togglePlay(key: ViewerKey) {
@@ -941,6 +1104,7 @@ onBeforeUnmount(() => {
 .state{padding:10px 12px;margin-bottom:12px;border-radius:8px;background:#f8fafc;color:#334155;font-size:13px}
 .state.error{color:#b91c1c;background:#fef2f2}
 .analysis-top{display:flex;flex-direction:column;gap:12px;margin-bottom:14px}
+.temp-tools{display:flex;align-items:center;justify-content:flex-start}
 .analysis-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .analysis-note{color:#64748b;font-size:12px}
 .analysis-downloads{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
@@ -966,6 +1130,7 @@ onBeforeUnmount(() => {
 .modal-body{display:flex;flex-direction:column;gap:12px}
 .modal-tip{font-size:14px;color:#334155}
 .download-hint{font-size:12px;color:#64748b}
+.hidden-input{display:none}
 :deep(.n-modal-mask){backdrop-filter:blur(6px);background:rgba(15,23,42,0.35)}
 @media (max-width: 900px){
   .display-grid.dual{grid-template-columns:1fr}

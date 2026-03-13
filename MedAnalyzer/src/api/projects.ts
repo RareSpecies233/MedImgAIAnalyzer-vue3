@@ -23,6 +23,8 @@ export type ProjectConfig = {
   [key: string]: unknown
 }
 
+export type ProjectScope = 'project' | 'temp'
+
 export class ServerOfflineError extends Error {
   constructor(message = '服务器离线') {
     super(message)
@@ -72,13 +74,47 @@ export async function getProject(uuid: string): Promise<Project> {
   return (await res.json()) as Project
 }
 
-export async function getProjectJson(uuid: string): Promise<ProjectConfig> {
-  const res = await fetch(`${API_BASE}/${uuid}/project.json`)
+export async function getProjectJson(uuid: string, scope: ProjectScope = 'project'): Promise<ProjectConfig> {
+  const url =
+    scope === 'temp'
+      ? `/api/temp/${encodeURIComponent(uuid)}/project.json`
+      : `${API_BASE}/${encodeURIComponent(uuid)}/project.json`
+  const res = await fetch(url)
   if (!res.ok) {
     const text = await res.text().catch(() => '')
     throw new Error(`无法获取 project.json：${res.status}${text ? ` — ${text}` : ''}`)
   }
   return (await res.json()) as ProjectConfig
+}
+
+export async function createTempProject(name?: string): Promise<{ tempUUID: string; name?: string }> {
+  const payload = typeof name === 'string' && name.trim() ? { name: name.trim() } : undefined
+  const res = await fetch('/api/temp/create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload || {}),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`创建临时项目失败：${text || res.status}`)
+  }
+  return (await res.json()) as { tempUUID: string; name?: string }
+}
+
+export async function convertTempProject(
+  tempUUID: string,
+  payload: { name?: string; note?: string },
+): Promise<Project> {
+  const res = await fetch(`/api/temp/${encodeURIComponent(tempUUID)}/convert`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`保存项目失败：${text || res.status}`)
+  }
+  return (await res.json()) as Project
 }
 
 export async function deleteProject(uuid: string): Promise<Response> {

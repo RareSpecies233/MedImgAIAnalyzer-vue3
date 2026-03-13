@@ -46,6 +46,8 @@ export type ProjectLlmUploadResponse = {
   message: string
 }
 
+export type ProjectScope = 'project' | 'temp'
+
 async function parseError(res: Response) {
   const text = await res.text().catch(() => '')
   return text || `${res.status}`
@@ -132,11 +134,13 @@ export async function chatWithRag(payload: LlmChatRequest): Promise<LlmChatRespo
 export async function uploadProjectRagDocuments(
   uuid: string,
   files: File[],
+  scope: ProjectScope = 'project',
 ): Promise<ProjectLlmUploadResponse> {
   const formData = new FormData()
   files.forEach((file) => formData.append('file', file, file.name))
 
-  const res = await fetch(`/api/project/${encodeURIComponent(uuid)}/llm/doc`, {
+  const base = scope === 'temp' ? '/api/temp' : '/api/project'
+  const res = await fetch(`${base}/${encodeURIComponent(uuid)}/llm/doc`, {
     method: 'POST',
     body: formData,
   })
@@ -149,8 +153,10 @@ export async function uploadProjectRagDocuments(
 export async function chatWithProjectRag(
   uuid: string,
   payload: LlmChatRequest,
+  scope: ProjectScope = 'project',
 ): Promise<LlmChatResponse> {
-  const res = await fetch(`/api/project/${encodeURIComponent(uuid)}/llm/chat`, {
+  const base = scope === 'temp' ? '/api/temp' : '/api/project'
+  const res = await fetch(`${base}/${encodeURIComponent(uuid)}/llm/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -161,16 +167,24 @@ export async function chatWithProjectRag(
   return (await res.json()) as LlmChatResponse
 }
 
-export async function getProjectLlmHistory(uuid: string): Promise<ProjectLlmHistoryEntry[]> {
-  const res = await fetch(`/api/project/${encodeURIComponent(uuid)}/llm/history`)
+export async function getProjectLlmHistory(
+  uuid: string,
+  scope: ProjectScope = 'project',
+): Promise<ProjectLlmHistoryEntry[]> {
+  const base = scope === 'temp' ? '/api/temp' : '/api/project'
+  const res = await fetch(`${base}/${encodeURIComponent(uuid)}/llm/history`)
   if (!res.ok) {
     throw new Error(`获取项目问诊历史失败：${await parseError(res)}`)
   }
   return (await res.json()) as ProjectLlmHistoryEntry[]
 }
 
-export async function clearProjectLlmHistory(uuid: string): Promise<{ message: string }> {
-  const res = await fetch(`/api/project/${encodeURIComponent(uuid)}/llm/history/delete`, {
+export async function clearProjectLlmHistory(
+  uuid: string,
+  scope: ProjectScope = 'project',
+): Promise<{ message: string }> {
+  const base = scope === 'temp' ? '/api/temp' : '/api/project'
+  const res = await fetch(`${base}/${encodeURIComponent(uuid)}/llm/history/delete`, {
     method: 'POST',
   })
   if (!res.ok) {

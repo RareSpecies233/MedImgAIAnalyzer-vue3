@@ -8,6 +8,18 @@
             <router-link :to="homePath" custom v-slot="{ href }">
               <a :href="href" @click.prevent="handleNavClick(homePath)">打开项目</a>
             </router-link>
+            <router-link to="/temp/preprocess" custom v-slot="{ href }">
+              <a :href="href" @click.prevent="handleNavClick('/temp/preprocess')">临时快速预处理</a>
+            </router-link>
+            <router-link to="/temp/analysis" custom v-slot="{ href }">
+              <a :href="href" @click.prevent="handleNavClick('/temp/analysis')">临时快速Ai分析</a>
+            </router-link>
+            <router-link to="/temp/reconstruction" custom v-slot="{ href }">
+              <a :href="href" @click.prevent="handleNavClick('/temp/reconstruction')">临时快速三维重建</a>
+            </router-link>
+            <router-link to="/temp/consult" custom v-slot="{ href }">
+              <a :href="href" @click.prevent="handleNavClick('/temp/consult')">临时快速Ai问诊</a>
+            </router-link>
             <router-link :to="aboutPath" custom v-slot="{ href }">
               <a :href="href" @click.prevent="handleNavClick(aboutPath)">南北绿豆</a>
             </router-link>
