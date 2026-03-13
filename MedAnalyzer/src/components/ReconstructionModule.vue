@@ -59,8 +59,8 @@
 
           <div class="viewer-card">
             <div class="viewer-head">
-              <span>Ai分析影像标注三维显示</span>
-              <div class="viewer-meta">{{ processedViewerMeta }}</div>
+              <span>{{ primaryViewerTitle }}</span>
+              <div class="viewer-meta">{{ primaryViewerMeta }}</div>
             </div>
             <div class="viewer-canvas">
               <canvas
@@ -353,6 +353,10 @@ const tempUploadInput = ref<HTMLInputElement | null>(null)
 const tempUploading = ref(false)
 const showSaveProjectModal = ref(false)
 const savingProject = ref(false)
+const tempModelStatus = reactive({
+  raw: false,
+  processed: false,
+})
 const saveProjectForm = reactive({
   name: '',
   note: '',
@@ -368,10 +372,26 @@ const viewers: Record<ViewerKey, ViewerContext | null> = {
   processed: null,
 }
 
-const has3d = computed(() => (projectConfig.value ? projectConfig.value['PD-3d'] !== false : false))
-const showDual = computed(() => projectConfig.value?.raw === 'markednpz')
+const hasProcessedModel = computed(() => {
+  if (!projectConfig.value) return false
+  return isTempScope.value ? tempModelStatus.processed : projectConfig.value['PD-3d'] !== false
+})
+const hasRawModel = computed(() => {
+  if (projectConfig.value?.raw !== 'markednpz') return false
+  return isTempScope.value ? tempModelStatus.raw : hasProcessedModel.value
+})
+const has3d = computed(() => hasProcessedModel.value || hasRawModel.value)
+const showDual = computed(() => hasProcessedModel.value && hasRawModel.value)
+const primaryViewerTitle = computed(() =>
+  hasProcessedModel.value ? 'Ai分析影像标注三维显示' : '原始影像标注三维显示',
+)
 const rawViewerMeta = computed(() => (showDual.value ? '原始标注三维模型' : ''))
-const processedViewerMeta = computed(() => (projectConfig.value?.PD ? `Ai分析模式：${projectConfig.value.PD}` : ''))
+const processedViewerMeta = computed(() =>
+  projectConfig.value?.PD ? `Ai分析模式：${projectConfig.value.PD}` : '',
+)
+const primaryViewerMeta = computed(() =>
+  hasProcessedModel.value ? processedViewerMeta.value : '原始标注三维模型',
+)
 
 function createViewerState(): ViewerState {
   return {
@@ -387,6 +407,7 @@ function createViewerState(): ViewerState {
 }
 
 async function loadConfig() {
+  errorConfig.value = null
   try {
     projectConfig.value = await getProjectJson(props.uuid, props.scope)
   } catch (err: any) {
@@ -395,10 +416,63 @@ async function loadConfig() {
   }
 }
 
+async function updateTempModelStatus() {
+  if (!isTempScope.value || !props.uuid) {
+    tempModelStatus.raw = false
+    tempModelStatus.processed = false
+    return
+  }
+  const [processed, raw] = await Promise.all([
+    checkModelReady(`${apiBase.value}/download/3d`),
+    projectConfig.value?.raw === 'markednpz'
+      ? checkModelReady(`${apiBase.value}/download/OG3d`)
+      : Promise.resolve(false),
+  ])
+  tempModelStatus.processed = processed
+  tempModelStatus.raw = raw
+}
+
+async function checkModelReady(url: string) {
+  try {
+    const headRes = await fetch(url, { method: 'HEAD' })
+    if (headRes.ok) return true
+    if (headRes.status !== 405 && headRes.status !== 501) return false
+  } catch {
+    // 部分后端不支持 HEAD，请回退到 GET 探测。
+  }
+
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return false
+    await res.body?.cancel?.()
+    return true
+  } catch {
+    return false
+  }
+}
+
+function resolveModelUrl(key: ViewerKey) {
+  if (key === 'raw') return `${apiBase.value}/download/OG3d`
+  if (isTempScope.value && !hasProcessedModel.value && hasRawModel.value) {
+    return `${apiBase.value}/download/OG3d`
+  }
+  return `${apiBase.value}/download/3d`
+}
+
+function isRebuildCompleted() {
+  if (projectConfig.value?.['PD-3d'] !== false) return true
+  return isTempScope.value && (tempModelStatus.processed || tempModelStatus.raw)
+}
+
 async function refreshModule() {
   await loadConfig()
+  await updateTempModelStatus()
   await nextTick()
-  if (!has3d.value) return
+  if (!has3d.value) {
+    disposeViewer('processed')
+    disposeViewer('raw')
+    return
+  }
   modelError.value = null
   try {
     await ensureViewer('processed')
@@ -420,6 +494,7 @@ async function openRebuildModal() {
   rebuildPhase.value = 'confirm'
   rebuildErrorMessage.value = ''
   await loadConfig()
+  await updateTempModelStatus()
   decideRebuildPhase()
 }
 
@@ -486,7 +561,8 @@ function startRebuildPolling() {
   rebuildTimer.value = window.setInterval(async () => {
     rebuildPollCount.value += 1
     await loadConfig()
-    if (projectConfig.value?.['PD-3d'] !== false) {
+    await updateTempModelStatus()
+    if (isRebuildCompleted()) {
       rebuildPhase.value = 'done'
       stopRebuildPolling()
       return
@@ -776,7 +852,7 @@ function resizeRenderer(key: ViewerKey) {
 async function loadModel(key: ViewerKey) {
   const viewer = viewers[key]
   if (!viewer) return
-  const url = key === 'raw' ? `${apiBase.value}/download/OG3d` : `${apiBase.value}/download/3d`
+  const url = resolveModelUrl(key)
   const arrayBuffer = await fetchArrayBuffer(url)
   const loader = new GLTFLoader()
   const gltf = await new Promise<THREE.Group>((resolve, reject) => {
@@ -1022,7 +1098,7 @@ onMounted(async () => {
   await refreshModule()
 })
 
-watch([has3d, showDual], async ([nextHas3d, nextDual]) => {
+watch([has3d, showDual, hasProcessedModel, hasRawModel], async ([nextHas3d, nextDual]) => {
   if (!nextHas3d) return
   await nextTick()
   modelError.value = null
