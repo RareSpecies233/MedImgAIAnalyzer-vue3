@@ -7,7 +7,7 @@
       <div v-if="errorConfig" class="state error">加载失败：{{ errorConfig }}</div>
 
       <div class="analysis-top">
-        <div v-if="isTempScope" class="temp-tools">
+        <div v-if="isTempScope && !props.externalTools" class="temp-tools">
           <n-space size="small" align="center" wrap>
             <n-button size="small" tertiary :loading="tempUploading" @click="triggerTempUpload">
               上传NPZ文件
@@ -241,7 +241,7 @@
   </n-modal>
 
   <n-modal
-    v-if="showSaveProjectModal"
+    v-if="showSaveProjectModal && !props.externalTools"
     :show="showSaveProjectModal"
     teleported
     :mask-closable="!savingProject"
@@ -353,8 +353,8 @@ type ViewerKey = 'raw' | 'processed'
 type AnalysisMode = 'raw' | 'semi'
 
 const props = withDefaults(
-  defineProps<{ uuid: string; scope?: ProjectScope }>(),
-  { scope: 'project' },
+  defineProps<{ uuid: string; scope?: ProjectScope; externalTools?: boolean }>(),
+  { scope: 'project', externalTools: false },
 )
 const router = useRouter()
 

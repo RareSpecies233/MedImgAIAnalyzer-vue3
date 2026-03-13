@@ -168,7 +168,7 @@ type ChatMessage = {
 }
 
 const props = withDefaults(
-  defineProps<{ uuid: string; scope?: ProjectScope }>(),
+  defineProps<{ uuid: string; scope?: ProjectScope; externalTools?: boolean }>(),
   { scope: 'project' },
 )
 

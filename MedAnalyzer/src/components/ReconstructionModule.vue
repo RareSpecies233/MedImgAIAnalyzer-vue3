@@ -8,7 +8,7 @@
       <div v-else-if="modelError" class="state error">模型加载失败：{{ modelError }}</div>
 
       <div class="recon-top">
-        <n-space v-if="isTempScope" size="small" align="center" wrap>
+        <n-space v-if="isTempScope && !props.externalTools" size="small" align="center" wrap>
           <n-button size="small" tertiary :loading="tempUploading" @click="triggerTempUpload">
             上传NPZ文件
           </n-button>
@@ -186,7 +186,7 @@
   </n-modal>
 
   <n-modal
-    v-if="showSaveProjectModal"
+    v-if="showSaveProjectModal && !props.externalTools"
     :show="showSaveProjectModal"
     teleported
     :mask-closable="!savingProject"
@@ -314,8 +314,8 @@ type ViewerContext = {
 }
 
 const props = withDefaults(
-  defineProps<{ uuid: string; scope?: ProjectScope }>(),
-  { scope: 'project' },
+  defineProps<{ uuid: string; scope?: ProjectScope; externalTools?: boolean }>(),
+  { scope: 'project', externalTools: false },
 )
 const router = useRouter()
 

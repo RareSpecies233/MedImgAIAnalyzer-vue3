@@ -433,7 +433,7 @@ type EnhancePhase = 'config' | 'processing' | 'done' | 'error'
 type EnhanceDownloadType = 'npz' | 'dcm' | 'nii' | 'png' | 'markedpng' | 'fused'
 
 const props = withDefaults(
-  defineProps<{ uuid: string; scope?: ProjectScope }>(),
+  defineProps<{ uuid: string; scope?: ProjectScope; externalTools?: boolean }>(),
   { scope: 'project' },
 )
 
