@@ -3,7 +3,7 @@
     <section class="page-header">
       <div class="header-left">
         <h1>{{ moduleTitle }}</h1>
-        <p class="subtitle">临时快速模式（/temp）</p>
+        <p class="subtitle">临时快速模式</p>
         <p class="warn-tip">此为临时项目，关闭界面后删除，如需下次访问，请点击保存</p>
         <p v-if="tempUUID" class="subtitle">当前临时项目 UUID：{{ tempUUID }}</p>
       </div>
