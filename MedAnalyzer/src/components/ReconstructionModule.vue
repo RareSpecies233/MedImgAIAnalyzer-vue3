@@ -147,7 +147,7 @@
       </template>
       <div class="modal-body">
         <template v-if="rebuildPhase === 'blocked'">
-          <div class="modal-tip">请先进行Ai分析后再进行三维重建</div>
+          <div class="modal-tip">{{ rebuildBlockedMessage }}</div>
         </template>
         <template v-else-if="rebuildPhase === 'confirm'">
           <div class="modal-tip">当前会重建Ai分析中的结果，是否继续？</div>
@@ -159,7 +159,7 @@
           <div class="modal-tip">处理完成</div>
         </template>
         <template v-else>
-          <div class="modal-tip">处理完成</div>
+          <div class="modal-tip">{{ rebuildErrorMessage || '处理失败，请稍后重试' }}</div>
         </template>
       </div>
       <template #footer>
@@ -333,6 +333,9 @@ const modelError = ref<string | null>(null)
 const showRebuildModal = ref(false)
 const rebuildPhase = ref<RebuildPhase>('idle')
 const rebuildTimer = ref<number | null>(null)
+const rebuildPollCount = ref(0)
+const rebuildBlockedMessage = ref('请先进行Ai分析后再进行三维重建')
+const rebuildErrorMessage = ref('')
 
 const showDownloadModal = ref(false)
 const downloadMessage = ref('')
@@ -415,16 +418,28 @@ async function refreshModule() {
 async function openRebuildModal() {
   showRebuildModal.value = true
   rebuildPhase.value = 'confirm'
+  rebuildErrorMessage.value = ''
   await loadConfig()
   decideRebuildPhase()
 }
 
 function decideRebuildPhase() {
   if (isTempScope.value) {
+    if (projectConfig.value?.raw === false) {
+      rebuildBlockedMessage.value = '请先上传带有标注信息的NPZ文件'
+      rebuildPhase.value = 'blocked'
+      return
+    }
+    if (projectConfig.value?.raw !== 'markednpz') {
+      rebuildBlockedMessage.value = '临时三维重建仅支持带有标注信息的NPZ文件'
+      rebuildPhase.value = 'blocked'
+      return
+    }
     rebuildPhase.value = 'confirm'
     return
   }
   if (projectConfig.value?.PD === false) {
+    rebuildBlockedMessage.value = '请先进行Ai分析后再进行三维重建'
     rebuildPhase.value = 'blocked'
   } else {
     rebuildPhase.value = 'confirm'
@@ -443,25 +458,43 @@ function closeRebuildModal() {
 }
 
 async function startRebuild() {
+  await loadConfig()
+  decideRebuildPhase()
+  if (rebuildPhase.value !== 'confirm') return
+
   rebuildPhase.value = 'running'
+  rebuildErrorMessage.value = ''
   try {
-    await fetch(`${apiBase.value}/to_3d_model`, {
+    const res = await fetch(`${apiBase.value}/to_3d_model`, {
       method: 'POST',
     })
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      throw new Error(text || `启动三维重建失败：${res.status}`)
+    }
     startRebuildPolling()
-  } catch (err) {
+  } catch (err: any) {
     console.error(err)
+    rebuildErrorMessage.value = err?.message || '启动三维重建失败'
     rebuildPhase.value = 'error'
   }
 }
 
 function startRebuildPolling() {
   stopRebuildPolling()
+  rebuildPollCount.value = 0
   rebuildTimer.value = window.setInterval(async () => {
+    rebuildPollCount.value += 1
     await loadConfig()
     if (projectConfig.value?.['PD-3d'] !== false) {
       rebuildPhase.value = 'done'
       stopRebuildPolling()
+      return
+    }
+    if (rebuildPollCount.value >= 240) {
+      stopRebuildPolling()
+      rebuildErrorMessage.value = '前端已停止轮询：后端长时间未更新 project.json 中的 PD-3d，请检查后端重建任务是否真正启动。'
+      rebuildPhase.value = 'error'
     }
   }, 500)
 }
@@ -471,6 +504,7 @@ function stopRebuildPolling() {
     window.clearInterval(rebuildTimer.value)
     rebuildTimer.value = null
   }
+  rebuildPollCount.value = 0
 }
 
 function handleDownloadClick() {

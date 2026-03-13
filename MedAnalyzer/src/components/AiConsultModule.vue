@@ -465,7 +465,15 @@ function openUploadModal() {
 
 watch(
   () => props.uuid,
-  () => {
+  (nextUuid, previousUuid) => {
+    if (
+      props.scope === 'temp' &&
+      !previousUuid &&
+      !!nextUuid &&
+      (pending.value || uploadPending.value || messages.value.length > 0 || selectedFiles.value.length > 0)
+    ) {
+      return
+    }
     void initializeModule()
   },
   { immediate: true },

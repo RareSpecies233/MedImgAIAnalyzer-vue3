@@ -267,6 +267,21 @@ const canConfirmUpload = computed(() =>
   uploads.value.length > 0 && uploads.value.every((item) => item.status === 'done'),
 )
 
+type TempRouteState = {
+  module: string
+  uuid: string
+  prefix: string
+}
+
+function extractTempRouteState(path: string): TempRouteState {
+  const matched = path.match(/^(\/client)?\/temp(?:\/([^/]+))?\/([^/?#]+)/)
+  return {
+    prefix: matched?.[1] || '',
+    uuid: matched?.[2] || '',
+    module: matched?.[3] || modulePathSegment.value,
+  }
+}
+
 function buildTempModulePath(uuid: string) {
   return `${routePrefix.value}/temp/${encodeURIComponent(uuid)}/${modulePathSegment.value}`
 }
@@ -303,6 +318,16 @@ async function initTempProject() {
   }
 }
 
+async function syncTempProjectSilently() {
+  error.value = ''
+  try {
+    await ensureTempProject()
+  } catch (err: any) {
+    console.error(err)
+    error.value = err?.message || '临时项目初始化失败'
+  }
+}
+
 function openUploadModal() {
   if (moduleKey.value === 'reconstruction') {
     selectedType.value = 'markednpz'
@@ -319,6 +344,19 @@ function resetUploadState() {
   uploads.value = []
   uploading.value = false
   selectedType.value = moduleKey.value === 'reconstruction' ? 'markednpz' : 'png'
+}
+
+function resetTransientUiState() {
+  stopPolling()
+  showUploadModal.value = false
+  showConfirmModal.value = false
+  showSaveProjectModal.value = false
+  showNoticeModal.value = false
+  noticeMessage.value = ''
+  confirming.value = false
+  savingProject.value = false
+  noticeClosable.value = true
+  resetUploadState()
 }
 
 function triggerFilePicker() {
@@ -526,7 +564,29 @@ onMounted(() => {
 
 watch(
   () => route.fullPath,
-  () => {
+  (nextPath, previousPath) => {
+    const nextState = extractTempRouteState(nextPath)
+    const previousState = extractTempRouteState(previousPath)
+    const moduleChanged =
+      nextState.module !== previousState.module || nextState.prefix !== previousState.prefix
+    const uuidFilledInPlace =
+      nextState.module === previousState.module &&
+      nextState.prefix === previousState.prefix &&
+      !previousState.uuid &&
+      !!nextState.uuid
+
+    if (moduleChanged) {
+      resetTransientUiState()
+      moduleRenderKey.value += 1
+      void initTempProject()
+      return
+    }
+
+    if (uuidFilledInPlace) {
+      void syncTempProjectSilently()
+      return
+    }
+
     void initTempProject()
   },
 )
