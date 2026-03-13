@@ -5,7 +5,7 @@
     </div>
     <div class="module-body">
       <div v-if="errorConfig" class="state error">加载失败：{{ errorConfig }}</div>
-      <div v-else-if="modelError" class="state error">模型加载失败：{{ modelError }}</div>
+      <div v-else-if="modelError" class="state error">模型加载失败：{{ modelError }}，请尝试重新分析生成</div>
 
       <div class="recon-top">
         <n-space v-if="isTempScope && !props.externalTools" size="small" align="center" wrap>
