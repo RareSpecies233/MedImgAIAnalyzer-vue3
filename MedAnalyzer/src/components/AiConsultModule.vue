@@ -168,7 +168,12 @@ type ChatMessage = {
 }
 
 const props = withDefaults(
-  defineProps<{ uuid: string; scope?: ProjectScope; externalTools?: boolean }>(),
+  defineProps<{
+    uuid: string
+    scope?: ProjectScope
+    externalTools?: boolean
+    ensureTempUuid?: () => Promise<string>
+  }>(),
   { scope: 'project' },
 )
 
@@ -195,6 +200,8 @@ const projectDocNames = ref<string[]>([])
 const selectedFiles = ref<File[]>([])
 const showUploadModal = ref(false)
 const showClearModal = ref(false)
+
+const hasUsableUuid = computed(() => props.uuid.trim().length > 0)
 
 const knownDocNames = computed(() => [...new Set([...ragDocNames.value, ...projectDocNames.value])])
 
@@ -311,6 +318,11 @@ function normalizeHistoryEntries(payload: unknown): ProjectLlmHistoryEntry[] {
 }
 
 async function loadHistory() {
+  if (props.scope === 'temp' && !hasUsableUuid.value) {
+    messages.value = []
+    loadingHistory.value = false
+    return
+  }
   loadingHistory.value = true
   try {
     const history = normalizeHistoryEntries(await getProjectLlmHistory(props.uuid, props.scope))
@@ -347,15 +359,25 @@ async function initializeModule() {
   await Promise.all([loadHistory(), loadGlobalDocNames()])
 }
 
+async function resolveOperationUuid() {
+  if (hasUsableUuid.value) return props.uuid
+  if (props.scope === 'temp' && props.ensureTempUuid) {
+    return await props.ensureTempUuid()
+  }
+  throw new Error('当前项目未初始化')
+}
+
 async function uploadDocuments() {
   if (!selectedFiles.value.length || uploadPending.value) return
+  const files = [...selectedFiles.value]
   uploadPending.value = true
   uploadError.value = ''
   uploadResultMessage.value = ''
   try {
-    const response = await uploadProjectRagDocuments(props.uuid, selectedFiles.value, props.scope)
+    const uuid = await resolveOperationUuid()
+    const response = await uploadProjectRagDocuments(uuid, files, props.scope)
     projectDocNames.value = Array.from(
-      new Set([...projectDocNames.value, ...selectedFiles.value.map((file) => file.name)]),
+      new Set([...projectDocNames.value, ...files.map((file) => file.name)]),
     )
     uploadResultMessage.value = response.message || '文档上传成功'
     selectedFiles.value = []
@@ -370,6 +392,14 @@ async function send() {
   const content = question.value.trim()
   if (!content || pending.value) return
 
+  let uuid = props.uuid
+  try {
+    uuid = await resolveOperationUuid()
+  } catch (err: any) {
+    error.value = `发送失败：${err?.message || String(err)}`
+    return
+  }
+
   error.value = ''
   question.value = ''
   pushMessage('user', content, 'current', new Date().toISOString())
@@ -377,7 +407,7 @@ async function send() {
   await scrollToBottom()
 
   try {
-    const response = await chatWithProjectRag(props.uuid, { question: content }, props.scope)
+    const response = await chatWithProjectRag(uuid, { question: content }, props.scope)
     const answer = (response.answer || '').trim() || '模型未返回内容'
     pushMessage('assistant', answer, 'current', new Date().toISOString())
     const hitDocuments = collectHitDocuments(response.contexts || [])
@@ -400,9 +430,20 @@ async function send() {
 
 async function confirmClear() {
   if (clearing.value) return
+  if (props.scope === 'temp' && !hasUsableUuid.value) {
+    messages.value = []
+    question.value = ''
+    error.value = ''
+    uploadError.value = ''
+    uploadResultMessage.value = ''
+    selectedFiles.value = []
+    showClearModal.value = false
+    return
+  }
   clearing.value = true
   try {
-    await clearProjectLlmHistory(props.uuid, props.scope)
+    const uuid = await resolveOperationUuid()
+    await clearProjectLlmHistory(uuid, props.scope)
     messages.value = []
     projectDocNames.value = []
     question.value = ''

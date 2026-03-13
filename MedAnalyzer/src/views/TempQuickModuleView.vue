@@ -8,7 +8,6 @@
         <p v-if="tempUUID" class="subtitle">当前临时项目 UUID：{{ tempUUID }}</p>
       </div>
       <n-space v-if="showTempImageTools" size="small">
-        <n-button v-if="!tempUUID" size="small" type="primary" @click="startTempSession">开始临时会话</n-button>
         <n-button size="small" tertiary :loading="uploading" @click="openUploadModal">上传文件</n-button>
         <n-button size="small" type="primary" :loading="savingProject" @click="openSaveProjectModal">保存项目</n-button>
       </n-space>
@@ -16,14 +15,15 @@
 
     <div v-if="loading" class="state">正在读取临时项目状态…</div>
     <div v-else-if="error" class="state error">{{ error }}</div>
-    <div v-else-if="!tempUUID" class="state">尚未创建临时项目，请点击上方按钮开始临时会话或直接上传文件。</div>
+    <div v-else-if="!tempUUID && moduleKey !== 'consult'" class="state">尚未创建临时项目，请直接上传文件开始使用。</div>
     <component
-      v-else-if="activeComponent && tempUUID"
+      v-else-if="activeComponent && (tempUUID || moduleKey === 'consult')"
       :key="moduleRenderKey"
       :is="activeComponent"
       :uuid="tempUUID"
       scope="temp"
       :external-tools="true"
+      v-bind="activeComponentProps"
     />
   </div>
 
@@ -231,6 +231,13 @@ const activeComponent = computed(() => {
   return PreprocessModule
 })
 
+const activeComponentProps = computed(() => {
+  if (moduleKey.value === 'consult') {
+    return { ensureTempUuid: ensureTempUUIDForAction }
+  }
+  return {}
+})
+
 const moduleTitle = computed(() => {
   if (moduleKey.value === 'analysis') return '临时快速Ai分析'
   if (moduleKey.value === 'reconstruction') return '临时快速三维重建'
@@ -281,20 +288,6 @@ async function ensureTempUUIDForAction() {
   tempUUID.value = created.tempUUID
   await router.replace(buildTempModulePath(created.tempUUID))
   return created.tempUUID
-}
-
-async function startTempSession() {
-  if (tempUUID.value) return
-  loading.value = true
-  error.value = ''
-  try {
-    await ensureTempUUIDForAction()
-  } catch (err: any) {
-    console.error(err)
-    error.value = err?.message || '创建临时项目失败'
-  } finally {
-    loading.value = false
-  }
 }
 
 async function initTempProject() {
