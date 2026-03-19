@@ -1,7 +1,7 @@
 <template>
   <div class="about-page">
     <section class="page-head">
-      <h1>南北绿豆</h1>
+      <h1>后端设置</h1>
       <p>大模型配置与 RAG 文档管理</p>
     </section>
 
@@ -340,7 +340,7 @@ function handleProjectViewModeChange(value: boolean) {
 }
 
 onMounted(async () => {
-  document.title = '南北绿豆'
+  document.title = '后端设置'
   await Promise.all([loadSettings(), loadDocuments()])
 })
 </script>

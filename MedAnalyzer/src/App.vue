@@ -2,7 +2,7 @@
   <div id="app">
     <div class="container">
       <header v-if="showNav" class="nav">
-        <div class="nav-left">哈基米</div>
+        <div class="nav-left">基于微调U-SAM模型的直肠癌分割系统</div>
         <nav class="nav-right">
           <n-space align="center" size="medium">
             <router-link :to="homePath" custom v-slot="{ href }">
@@ -21,7 +21,7 @@
               <a :href="href" @click.prevent="handleNavClick(`${tempPrefix}/temp/consult`)">临时快速Ai问诊</a>
             </router-link>
             <router-link :to="aboutPath" custom v-slot="{ href }">
-              <a :href="href" @click.prevent="handleNavClick(aboutPath)">南北绿豆</a>
+              <a :href="href" @click.prevent="handleNavClick(aboutPath)">后端设置</a>
             </router-link>
             <n-button v-if="showDevButton" size="small" tertiary @click="openDevModal">
               开发者模式
