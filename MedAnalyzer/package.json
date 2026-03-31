@@ -10,6 +10,7 @@
     "dev": "vite",
     "build": "run-p type-check \"build-only {@}\" --",
     "preview": "vite preview",
+    "render:mermaid": "node ./scripts/render-mermaid.mjs",
     "build-only": "vite build",
     "build:exe": "npm run build-only && node ./scripts/sync-dist-to-deployer.mjs && npx pkg ./deploy-exe/package.json --targets node18-win-x64 --output ./release/MedAnalyzerDeploy.exe",
     "build:macos": "npm run build-only && node ./scripts/sync-dist-to-deployer.mjs && npx -y @yao-pkg/pkg ./deploy-exe/package.json --targets node18-macos-x64 --output ./release/MedAnalyzerDeploy-macos-x64 && npx -y @yao-pkg/pkg ./deploy-exe/package.json --targets node18-macos-arm64 --output ./release/MedAnalyzerDeploy-macos-arm64",
