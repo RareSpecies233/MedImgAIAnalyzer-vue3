@@ -96,7 +96,7 @@ export async function createTempProject(name?: string): Promise<{ tempUUID: stri
   })
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    throw new Error(`创建临时项目失败：${text || res.status}`)
+    throw new Error(`创建分模块项目失败：${text || res.status}`)
   }
   return (await res.json()) as { tempUUID: string; name?: string }
 }

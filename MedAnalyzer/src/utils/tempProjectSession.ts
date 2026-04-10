@@ -37,7 +37,7 @@ export async function ensureTempUUID() {
     }
   }
 
-  const created = await createTempProject('临时快速项目')
+  const created = await createTempProject('分模块快速项目')
   const tempUUID = created.tempUUID
   writeStoredTempUUID(tempUUID)
   return tempUUID

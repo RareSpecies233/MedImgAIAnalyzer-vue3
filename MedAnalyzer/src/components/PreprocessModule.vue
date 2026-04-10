@@ -68,19 +68,32 @@
           </template>
 
           <template v-else-if="!isCropping">
-            <n-space vertical :size="10">
-              <n-button size="small" type="primary" :disabled="pngList.length === 0" @click="openEnhanceModal">高级数据增强</n-button>
-              <n-button size="small" @click="openPngDownloadModal">下载PNG</n-button>
-              <n-button size="small" @click="downloadImmediate('npz')">转换为npz</n-button>
-              <n-button size="small" @click="downloadProcessed('nii')">转换为nii</n-button>
-              <n-button size="small" @click="downloadProcessed('dcm')">转换为dcm</n-button>
-              <n-divider />
-              <n-button size="small" @click="rotateClockwise">旋转（顺时针90度）</n-button>
-              <n-button size="small" @click="enterCrop">裁切图像</n-button>
-              <n-button v-if="canToggleMark" size="small" @click="toggleMark">
-                {{ showMarked ? '关闭标注显示' : '启用标注显示' }}
-              </n-button>
-            </n-space>
+            <div class="action-module">
+              <div class="action-module-head">格式转换</div>
+              <div class="action-module-body">
+                <n-space vertical :size="10">
+                  <n-button size="small" @click="openPngDownloadModal">下载PNG</n-button>
+                  <n-button size="small" @click="downloadImmediate('npz')">转换为npz</n-button>
+                  <n-button size="small" @click="downloadProcessed('nii')">转换为nii</n-button>
+                  <n-button size="small" @click="downloadProcessed('dcm')">转换为dcm</n-button>
+                </n-space>
+              </div>
+            </div>
+
+            <div class="action-module">
+              <div class="action-module-head">数据增强</div>
+              <div class="action-module-body">
+                <n-space vertical :size="10">
+                  <n-button size="small" type="primary" :disabled="pngList.length === 0" @click="openEnhanceModal">数据增强</n-button>
+                  <n-divider />
+                  <n-button size="small" @click="rotateClockwise">旋转（顺时针90度）</n-button>
+                  <n-button size="small" @click="enterCrop">裁切图像</n-button>
+                  <n-button v-if="canToggleMark" size="small" @click="toggleMark">
+                    {{ showMarked ? '关闭标注显示' : '启用标注显示' }}
+                  </n-button>
+                </n-space>
+              </div>
+            </div>
           </template>
 
           <template v-else>
@@ -1263,6 +1276,9 @@ onBeforeUnmount(() => {
 .file-status{font-size:12px;color:#475569;text-align:right}
 .file-progress :deep(.n-progress){margin:0}
 .download-hint{font-size:12px;color:#64748b}
+.action-module{border:1px solid var(--color-border);border-radius:8px;padding:10px;background:transparent;display:flex;flex-direction:column;gap:8px}
+.action-module-head{font-size:13px;color:#0f172a;font-weight:600;margin-bottom:6px}
+.action-module-body{display:flex;flex-direction:column;gap:8px}
 @media (max-width: 900px){
   .upload-box,.image-frame{width:100%;height:auto;aspect-ratio:1/1}
   .slider{width:100%}

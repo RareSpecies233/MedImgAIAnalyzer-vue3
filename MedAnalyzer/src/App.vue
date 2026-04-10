@@ -9,16 +9,16 @@
               <a :href="href" @click.prevent="handleNavClick(homePath)">打开项目</a>
             </router-link>
             <router-link :to="`${tempPrefix}/temp/preprocess`" custom v-slot="{ href }">
-              <a :href="href" @click.prevent="handleNavClick(`${tempPrefix}/temp/preprocess`)">临时快速预处理</a>
+              <a :href="href" @click.prevent="handleNavClick(`${tempPrefix}/temp/preprocess`)">分模块预处理</a>
             </router-link>
             <router-link :to="`${tempPrefix}/temp/analysis`" custom v-slot="{ href }">
-              <a :href="href" @click.prevent="handleNavClick(`${tempPrefix}/temp/analysis`)">临时快速Ai分析</a>
+              <a :href="href" @click.prevent="handleNavClick(`${tempPrefix}/temp/analysis`)">分模块Ai分析</a>
             </router-link>
             <router-link :to="`${tempPrefix}/temp/reconstruction`" custom v-slot="{ href }">
-              <a :href="href" @click.prevent="handleNavClick(`${tempPrefix}/temp/reconstruction`)">临时快速三维重建</a>
+              <a :href="href" @click.prevent="handleNavClick(`${tempPrefix}/temp/reconstruction`)">分模块三维重建</a>
             </router-link>
             <router-link :to="`${tempPrefix}/temp/consult`" custom v-slot="{ href }">
-              <a :href="href" @click.prevent="handleNavClick(`${tempPrefix}/temp/consult`)">临时快速Ai问诊</a>
+              <a :href="href" @click.prevent="handleNavClick(`${tempPrefix}/temp/consult`)">分模块Ai问诊</a>
             </router-link>
             <router-link :to="aboutPath" custom v-slot="{ href }">
               <a :href="href" @click.prevent="handleNavClick(aboutPath)">后端设置</a>

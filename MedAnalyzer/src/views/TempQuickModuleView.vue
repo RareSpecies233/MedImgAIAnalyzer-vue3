@@ -5,7 +5,7 @@
         <h1>{{ moduleTitle }}</h1>
         <p class="subtitle">临时快速模式</p>
         <p v-if="moduleKey !== 'consult'" class="warn-tip">此为临时项目，关闭界面后删除，如需下次访问，请点击保存</p>
-        <p v-if="tempUUID" class="subtitle">当前临时项目 UUID：{{ tempUUID }}</p>
+        <p v-if="tempUUID" class="subtitle">当前分模块项目 UUID：{{ tempUUID }}</p>
       </div>
       <n-space v-if="showTempImageTools" size="small">
         <n-button size="small" tertiary :loading="uploading" @click="openUploadModal">上传文件</n-button>
@@ -13,9 +13,9 @@
       </n-space>
     </section>
 
-    <div v-if="loading" class="state">正在读取临时项目状态…</div>
+    <div v-if="loading" class="state">正在读取分模块项目状态…</div>
     <div v-else-if="error" class="state error">{{ error }}</div>
-    <div v-else-if="!tempUUID && moduleKey !== 'consult'" class="state">尚未创建临时项目，请直接上传文件开始使用。</div>
+    <div v-else-if="!tempUUID && moduleKey !== 'consult'" class="state">尚未创建分模块项目，请直接上传文件开始使用。</div>
     <component
       v-else-if="activeComponent && (tempUUID || moduleKey === 'consult')"
       :key="moduleRenderKey"
@@ -239,10 +239,10 @@ const activeComponentProps = computed(() => {
 })
 
 const moduleTitle = computed(() => {
-  if (moduleKey.value === 'analysis') return '临时快速Ai分析'
-  if (moduleKey.value === 'reconstruction') return '临时快速三维重建'
-  if (moduleKey.value === 'consult') return '临时快速Ai问诊'
-  return '临时快速预处理'
+  if (moduleKey.value === 'analysis') return '分模块Ai分析'
+  if (moduleKey.value === 'reconstruction') return '分模块三维重建'
+  if (moduleKey.value === 'consult') return '分模块Ai问诊'
+  return '分模块预处理'
 })
 
 const modulePathSegment = computed(() => {
@@ -299,7 +299,7 @@ async function ensureTempProject() {
 
 async function ensureTempUUIDForAction() {
   if (tempUUID.value) return tempUUID.value
-  const created = await createTempProject('临时快速项目')
+  const created = await createTempProject('分模块快速项目')
   tempUUID.value = created.tempUUID
   await router.replace(buildTempModulePath(created.tempUUID))
   return created.tempUUID
@@ -312,7 +312,7 @@ async function initTempProject() {
     await ensureTempProject()
   } catch (err: any) {
     console.error(err)
-    error.value = err?.message || '临时项目初始化失败'
+    error.value = err?.message || '分模块项目初始化失败'
   } finally {
     loading.value = false
   }
@@ -324,7 +324,7 @@ async function syncTempProjectSilently() {
     await ensureTempProject()
   } catch (err: any) {
     console.error(err)
-    error.value = err?.message || '临时项目初始化失败'
+    error.value = err?.message || '分模块项目初始化失败'
   }
 }
 
@@ -391,7 +391,7 @@ async function uploadQueue() {
       await ensureTempUUIDForAction()
     } catch (err) {
       console.error(err)
-      openNotice('创建临时项目失败，请稍后重试')
+      openNotice('创建分模块项目失败，请稍后重试')
       return
     }
   }
